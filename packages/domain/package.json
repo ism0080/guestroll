@@ -1,0 +1,12 @@
+{
+  "name": "@guestroll/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@guestroll/contracts": "0.0.0",
+    "effect": "4.0.0-rc.112"
+  }
+}

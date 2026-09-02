@@ -1,0 +1,37 @@
+{
+  "name": "guestroll",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "api"
+  ],
+  "scripts": {
+    "prepare": "effect-tsgo patch --oxlint",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260822.1",
+    "@effect/tsgo": "^0.39.0",
+    "@oxlint/plugins": "1.80.0",
+    "@types/bun": "latest",
+    "drizzle-kit": "1.0.0-rc.5-ab785fc",
+    "effect-solutions": "^0.5.3",
+    "oxlint": "1.80.0",
+    "oxlint-tsgolint": "^7.0.2001"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-rc.112",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@effect/sql-d1": "4.0.0-rc.112",
+    "@guestroll/api": "workspace:*",
+    "alchemy": "2.0.0-beta.76",
+    "drizzle-orm": "1.0.0-rc.5-ab785fc",
+    "effect": "4.0.0-rc.112"
+  }
+}

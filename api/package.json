@@ -1,0 +1,15 @@
+{
+  "name": "@guestroll/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@cloudflare/workers-types": "^5.20260822.1",
+    "@effect/sql-d1": "4.0.0-rc.112",
+    "@guestroll/contracts": "0.0.0",
+    "@guestroll/domain": "0.0.0",
+    "effect": "4.0.0-rc.112"
+  }
+}
