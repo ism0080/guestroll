@@ -1,6 +1,5 @@
 {
   "name": "guestroll",
-  "module": "index.ts",
   "type": "module",
   "private": true,
   "workspaces": [
@@ -10,20 +9,20 @@
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "test": "bun test"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260822.1",
-    "@effect/tsgo": "^0.39.0",
+    "@alchemy.run/cloudflare-runtime": "2.0.0-beta.76",
+    "@cloudflare/workers-types": "5.20260822.1",
+    "@effect/tsgo": "0.39.0",
     "@oxlint/plugins": "1.80.0",
-    "@types/bun": "latest",
+    "@types/bun": "1.3.1",
     "drizzle-kit": "1.0.0-rc.5-ab785fc",
-    "effect-solutions": "^0.5.3",
+    "effect-solutions": "0.5.3",
     "oxlint": "1.80.0",
-    "oxlint-tsgolint": "^7.0.2001"
-  },
-  "peerDependencies": {
-    "typescript": "^7"
+    "oxlint-tsgolint": "7.0.2001",
+    "typescript": "7.0.2"
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.0-rc.112",

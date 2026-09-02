@@ -1,7 +1,9 @@
 import * as Cloudflare from "alchemy/Cloudflare"
+import * as Alchemy from "alchemy"
 import type { HttpEffect } from "alchemy/Http"
 import { AppLive, ApiApp, WorkerEnv } from "@guestroll/api"
 import * as Effect from "effect/Effect"
+import * as Config from "effect/Config"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
@@ -29,7 +31,24 @@ const HttpPlatformStub = Layer.succeed(HttpPlatform.HttpPlatform, {
 
 export default Cloudflare.Worker(
   "Api",
-  { main: import.meta.url },
+  {
+    main: import.meta.url,
+    env: {
+      HOST_PASSCODE: Config.redacted("HOST_PASSCODE"),
+      HOST_SESSION_SECRET: Alchemy.makeRandom("HostSessionSecret"),
+      ALLOWED_ORIGIN: Config.string("ALLOWED_ORIGIN").pipe(
+        Config.withDefault("http://localhost:5173")
+      ),
+      GUEST_RATE_LIMIT: Cloudflare.RateLimit("GUEST_RATE_LIMIT", {
+        namespaceId: 1001,
+        simple: { limit: 60, period: 60 }
+      }),
+      LOGIN_RATE_LIMIT: Cloudflare.RateLimit("LOGIN_RATE_LIMIT", {
+        namespaceId: 1002,
+        simple: { limit: 5, period: 60 }
+      })
+    }
+  },
   Effect.gen(function* () {
     const env = yield* Cloudflare.WorkerEnvironment
     const db = yield* Database
@@ -40,7 +59,13 @@ export default Cloudflare.Worker(
 
     const WorkerEnvLive = Layer.succeed(WorkerEnv, {
       DB: env["DB"],
-      BUCKET: env["BUCKET"]
+      BUCKET: env["BUCKET"],
+      HOST_PASSCODE: env["HOST_PASSCODE"],
+      HOST_SESSION_SECRET: env["HOST_SESSION_SECRET"],
+      ALLOWED_ORIGIN: env["ALLOWED_ORIGIN"],
+      CRYPTO: crypto,
+      GUEST_RATE_LIMIT: env["GUEST_RATE_LIMIT"],
+      LOGIN_RATE_LIMIT: env["LOGIN_RATE_LIMIT"]
     })
 
     const fetchEffect = yield* HttpRouter.toHttpEffect(
@@ -53,9 +78,10 @@ export default Cloudflare.Worker(
         ]),
         Layer.provide(
           HttpRouter.cors({
-            allowedOrigins: ["*"],
+            allowedOrigins: [env["ALLOWED_ORIGIN"]],
             allowedMethods: ["GET", "POST", "PATCH", "OPTIONS"],
-            allowedHeaders: ["Content-Type"]
+            allowedHeaders: ["Content-Type"],
+            credentials: true
           })
         )
       )

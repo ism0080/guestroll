@@ -11,11 +11,30 @@ import {
   EventPublic,
   EventSlug,
   EventStatusUpdate,
-  HostPhoto,
+  HostLogin,
+  HostPhotoPage,
+  HostSession,
+  PhotoId,
+  RateLimitExceeded,
   UploadResult
 } from "@guestroll/contracts"
 
 const SlugParams = Schema.Struct({ slug: EventSlug })
+const PhotoPageQuery = Schema.Struct({
+  limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
+  cursorUploadedAt: Schema.optional(Schema.Date),
+  cursorId: Schema.optional(PhotoId)
+})
+
+export const LoginHost = HttpApiEndpoint.post("loginHost", "/host/login", {
+  payload: HostLogin,
+  success: HostSession,
+  error: [HttpApiError.Unauthorized, RateLimitExceeded]
+})
+
+export const LogoutHost = HttpApiEndpoint.post("logoutHost", "/host/logout", {
+  success: HostSession
+})
 
 export const GetEvent = HttpApiEndpoint.get("getEvent", "/events/:slug", {
   params: SlugParams,
@@ -25,11 +44,13 @@ export const GetEvent = HttpApiEndpoint.get("getEvent", "/events/:slug", {
 
 export const CreateEvent = HttpApiEndpoint.post("createEvent", "/events", {
   payload: EventCreate,
-  success: EventPublic
+  success: EventPublic,
+  error: HttpApiError.Unauthorized
 })
 
 export const ListEvents = HttpApiEndpoint.get("listEvents", "/events", {
-  success: Schema.Array(EventPublic)
+  success: Schema.Array(EventPublic),
+  error: HttpApiError.Unauthorized
 })
 
 export const UpdateEventStatus = HttpApiEndpoint.patch(
@@ -39,7 +60,7 @@ export const UpdateEventStatus = HttpApiEndpoint.patch(
     params: SlugParams,
     payload: EventStatusUpdate,
     success: EventPublic,
-    error: [HttpApiError.NotFound, HttpApiError.BadRequest]
+    error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
   }
 )
 
@@ -50,7 +71,7 @@ export const CreateCamera = HttpApiEndpoint.post(
     params: SlugParams,
     payload: CameraCreate,
     success: CameraCreateResult,
-    error: [HttpApiError.NotFound, HttpApiError.Forbidden]
+    error: [HttpApiError.NotFound, HttpApiError.Forbidden, RateLimitExceeded]
   }
 )
 
@@ -59,13 +80,19 @@ export const UploadPhoto = HttpApiEndpoint.post(
   "/events/:slug/photos",
   {
     params: SlugParams,
-    payload: Schema.Unknown.pipe(HttpApiSchema.asMultipartStream()),
+    payload: Schema.Unknown.pipe(HttpApiSchema.asMultipartStream({
+      maxParts: 4,
+      maxFieldSize: 256,
+      maxFileSize: 2 * 1024 * 1024,
+      maxTotalSize: 2 * 1024 * 1024 + 1024
+    })),
     success: UploadResult,
     error: [
       HttpApiError.NotFound,
       HttpApiError.Forbidden,
       HttpApiError.BadRequest,
-      HttpApiError.Conflict
+      HttpApiError.Conflict,
+      RateLimitExceeded
     ]
   }
 )
@@ -75,8 +102,9 @@ export const ListEventPhotos = HttpApiEndpoint.get(
   "/events/:slug/photos",
   {
     params: SlugParams,
-    success: Schema.Array(HostPhoto),
-    error: HttpApiError.NotFound
+    query: PhotoPageQuery,
+    success: HostPhotoPage,
+    error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
   }
 )
 
@@ -86,6 +114,8 @@ export class GuestGroup extends HttpApiGroup.make("guest")
   .add(UploadPhoto) {}
 
 export class HostGroup extends HttpApiGroup.make("host")
+  .add(LoginHost)
+  .add(LogoutHost)
   .add(CreateEvent)
   .add(ListEvents)
   .add(UpdateEventStatus)

@@ -23,7 +23,7 @@ export const R2Live = Layer.effect(
     const put: R2Deps["put"] = (key, value, contentType) =>
       Effect.tryPromise(() => bucket.put(key, value, { httpMetadata: { contentType } })).pipe(
         Effect.orDie,
-        Effect.asVoid
+        Effect.map(() => undefined)
       )
     const get: R2Deps["get"] = (key) =>
       Effect.tryPromise(() => bucket.get(key)).pipe(
@@ -38,7 +38,7 @@ export const R2Live = Layer.effect(
         )
       )
     const remove: R2Deps["delete"] = (key) =>
-      Effect.tryPromise(() => bucket.delete(key)).pipe(Effect.orDie, Effect.asVoid)
+      Effect.tryPromise(() => bucket.delete(key)).pipe(Effect.orDie, Effect.map(() => undefined))
     return R2.of({ put, get, delete: remove })
   })
 )

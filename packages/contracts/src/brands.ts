@@ -14,6 +14,9 @@ export type CameraId = typeof CameraId.Type
 export const PhotoId = _id("PhotoId")
 export type PhotoId = typeof PhotoId.Type
 
+export const UploadId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("UploadId"))
+export type UploadId = typeof UploadId.Type
+
 export const EventSlug = _id("EventSlug")
 export type EventSlug = typeof EventSlug.Type
 

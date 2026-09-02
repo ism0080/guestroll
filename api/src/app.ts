@@ -4,7 +4,7 @@ import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import { EventsApi } from "./api.ts"
-import { OwnerScope, OwnerScopePlaceholder } from "./config.ts"
+import { HostAuth, HostAuthLive } from "./host-auth.ts"
 import { WorkerEnv } from "./env.ts"
 import { GuestLive, HostLive } from "./handlers.ts"
 import { R2, R2Live } from "./storage.ts"
@@ -32,13 +32,13 @@ const D1Live: Layer.Layer<D1Client.D1Client | SqlClient.SqlClient, never, Worker
  * composition (alchemy Worker), not the API package.
  */
 export const AppLive: Layer.Layer<
-  D1Client.D1Client | SqlClient.SqlClient | R2 | OwnerScope,
+  D1Client.D1Client | SqlClient.SqlClient | R2 | HostAuth,
   never,
   WorkerEnv
 > = Layer.mergeAll(
   D1Live,
   R2Live,
-  OwnerScopePlaceholder
+  HostAuthLive
 )
 
 /**
@@ -47,6 +47,5 @@ export const AppLive: Layer.Layer<
  * HTTP runtime services the infra layer supplies.
  */
 export const ApiApp = HttpApiBuilder.layer(EventsApi).pipe(
-  Layer.provide(GuestLive),
-  Layer.provide(HostLive)
+  Layer.provide([GuestLive, HostLive])
 )

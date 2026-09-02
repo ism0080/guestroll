@@ -87,7 +87,9 @@ guestroll/
   limit, status (`draft | live`), timestamps.
 - **Camera** — id, eventId, guest name (optional), usedCount (server-enforced),
   created at.
-- **Photo** — id, eventId, cameraId, objectKey, thumbKey, taken at.
+- **Photo** — id, client upload id, eventId, cameraId, objectKey, thumbKey,
+  taken at, uploaded at. The client upload id makes retries idempotent per
+  camera; server upload time drives stable host pagination.
 - **Download** — for "download all as ZIP" via R2 (build + cache).
 
 All events/cameras/photos are scoped by `ownerId`; every query enforces the
@@ -402,5 +404,6 @@ Status: ✅ done · ◻️ pending
 - ZIP download not yet built. Verify the bridge (`HttpRouter.toHttpEffect` /
   `waitUntil`) for the ZIP build so large download jobs can outlive the
   request.
-- Owner auth (passcode/QR) not yet implemented — `OwnerScope` is a
-  placeholder (`OwnerScopePlaceholder`) until the host dashboard lands.
+- Owner auth uses a configured passcode exchanged for a signed, expiring,
+  HTTP-only session cookie. The host dashboard still needs to implement the
+  login form and cookie-bearing API client.

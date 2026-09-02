@@ -10,7 +10,11 @@ import { Database } from "./infra/Db.ts"
 export default Alchemy.Stack(
   "Guestroll",
   {
-    providers: Layer.mergeAll(Cloudflare.providers(), Drizzle.providers()),
+    providers: Layer.mergeAll(
+      Cloudflare.providers(),
+      Drizzle.providers(),
+      Alchemy.RandomProvider()
+    ),
     state: Cloudflare.state()
   },
   Effect.gen(function* () {

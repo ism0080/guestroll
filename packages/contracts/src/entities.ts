@@ -5,7 +5,8 @@ import {
   EventSlug,
   ObjectKey,
   OwnerId,
-  PhotoId
+  PhotoId,
+  UploadId
 } from "./brands.ts"
 import {
   EventStatus,
@@ -53,14 +54,17 @@ export class CameraCreate extends Schema.Class<CameraCreate>("CameraCreate")({
 
 export class Photo extends Schema.Class<Photo>("Photo")({
   id: PhotoId,
+  uploadId: UploadId,
   eventId: EventId,
   cameraId: CameraId,
   objectKey: ObjectKey,
   thumbKey: ObjectKey,
-  takenAt: Schema.Date
+  takenAt: Schema.Date,
+  uploadedAt: Schema.Date
 }) {}
 
 export class PhotoUploadMeta extends Schema.Class<PhotoUploadMeta>("PhotoUploadMeta")({
+  uploadId: UploadId,
   cameraId: CameraId,
   takenAt: Schema.Date
 }) {}
