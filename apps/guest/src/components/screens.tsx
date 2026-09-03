@@ -1,6 +1,6 @@
 import { Show } from "solid-js"
 import type { Accessor, JSX } from "solid-js"
-import { CameraIcon, CheckIcon, CloseIcon, GalleryIcon } from "./icons"
+import { CameraIcon, CheckIcon, GalleryIcon } from "./icons"
 
 export interface WelcomeScreenProps {
   readonly title: string
@@ -187,63 +187,3 @@ export const ErrorScreen = (props: ErrorScreenProps): JSX.Element => (
   </div>
 )
 
-export interface ReviewOverlayProps {
-  readonly url: string
-  readonly busy: boolean
-  readonly error: string | null
-  readonly onKeep: () => void
-  readonly onRetake: () => void
-}
-
-export const ReviewOverlay = (props: ReviewOverlayProps): JSX.Element => (
-  <div class="fixed inset-0 z-[60] flex flex-col bg-black">
-    <div class="relative flex min-h-0 flex-1 items-center justify-center p-4">
-      <div class="film-grain relative max-h-full overflow-hidden rounded-box shadow-2xl">
-        <img src={props.url} alt="Your capture" class="review-photo max-h-[70dvh] w-auto" />
-      </div>
-      <button
-        type="button"
-        class="btn btn-circle btn-ghost absolute right-4 top-4 text-white"
-        aria-label="Close and retake"
-        disabled={props.busy}
-        onClick={props.onRetake}
-      >
-        <CloseIcon class="h-6 w-6" />
-      </button>
-    </div>
-
-    <div class="px-6 pb-8">
-      <Show
-        when={props.error === null}
-        fallback={
-          <div class="alert alert-error mb-3">
-            <span>{props.error}</span>
-          </div>
-        }
-      >
-        <p class="mb-3 text-center text-sm text-white/70">
-          {props.busy ? "Getting this one ready…" : "Keep this one or snap it again."}
-        </p>
-      </Show>
-
-      <div class="flex gap-3">
-        <button
-          type="button"
-          class="btn btn-ghost btn-lg flex-1 text-white"
-          disabled={props.busy}
-          onClick={props.onRetake}
-        >
-          Retake
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary btn-lg flex-1"
-          disabled={props.busy}
-          onClick={props.onKeep}
-        >
-          {props.busy ? <span class="loading loading-spinner" /> : "Keep it"}
-        </button>
-      </div>
-    </div>
-  </div>
-)

@@ -15,19 +15,12 @@ import { InstallPrompt } from "~/components/InstallPrompt"
 import {
   DoneScreen,
   ErrorScreen,
-  ReviewOverlay,
   WelcomeScreen
 } from "~/components/screens"
 import type { ErrorKind } from "~/components/screens"
 import { CameraIcon } from "~/components/icons"
 
 type Phase = "loading" | "error" | "welcome" | "shooting" | "done"
-
-interface ReviewPhoto {
-  readonly canvas: HTMLCanvasElement
-  readonly url: string
-  readonly takenAt: Date
-}
 
 const _kindFor = (error: ApiError): ErrorKind => {
   switch (error.kind) {
@@ -53,7 +46,6 @@ const GuestRoute = (): JSX.Element => {
   const [camera, setCamera] = createSignal<CameraSession | null>(stored ?? null)
   const [guestName, setGuestName] = createSignal(stored?.guestName ?? deviceGuestName())
   const [cameraIssue, setCameraIssue] = createSignal(false)
-  const [review, setReview] = createSignal<ReviewPhoto | null>(null)
   const [fatalError, setFatalError] = createSignal<ErrorKind | null>(null)
   const [forceDone, setForceDone] = createSignal(false)
   const [doneError, setDoneError] = createSignal<string | null>(null)
@@ -126,7 +118,7 @@ const GuestRoute = (): JSX.Element => {
     }
   }))
 
-  const [encoding, setEncoding] = createSignal(false)
+  const [savingCount, setSavingCount] = createSignal(0)
   const [uploadError, setUploadError] = createSignal<string | null>(null)
   const [pendingCount, setPendingCount] = createSignal(0)
   let disposeWorkerMessages: (() => void) | undefined
@@ -152,7 +144,6 @@ const GuestRoute = (): JSX.Element => {
         void refreshPending()
         break
       case "conflict":
-        setReview(null)
         setForceDone(true)
         void refreshPending()
         break
@@ -185,46 +176,23 @@ const GuestRoute = (): JSX.Element => {
     })
   }
 
-  const handleGalleryFile = async (file: File): Promise<void> => {
-    try {
-      const bitmap = await loadGalleryBitmap(file)
-      const canvas = renderFrame(bitmap, filterPack())
-      setUploadError(null)
-      setReview({ canvas, url: canvas.toDataURL("image/jpeg", 0.85), takenAt: new Date() })
-      bitmap.close()
-    } catch {
-      setCameraIssue(true)
-    }
-  }
-
-  const handleCapture = (bitmap: ImageBitmap): void => {
-    const canvas = renderFrame(bitmap, filterPack())
-    setUploadError(null)
-    setReview({ canvas, url: canvas.toDataURL("image/jpeg", 0.85), takenAt: new Date() })
-    bitmap.close()
-  }
-
-  const handleRetake = (): void => {
-    setReview(null)
-    setUploadError(null)
-  }
-
-  const handleKeep = async (): Promise<void> => {
-    const current = review()
+  // Disposable-camera behavior: every shutter press saves straight away
+  // with no preview / keep-or-retake step. Fire-and-forget so guests can
+  // keep snapping while earlier shots finish encoding in the background.
+  const persistCanvas = async (canvas: HTMLCanvasElement, takenAt: Date): Promise<void> => {
     const loaded = eventQuery.data
     const session = camera()
-    if (current === null || loaded === undefined || session === null) return
-    setEncoding(true)
+    if (loaded === undefined || session === null) return
+    setSavingCount((count) => count + 1)
     try {
-      const blob = await compressCanvas(current.canvas)
+      const blob = await compressCanvas(canvas)
       const outcome = await submitPhoto({
         slug: loaded.slug,
         cameraId: session.cameraId,
-        takenAt: current.takenAt,
+        takenAt,
         uploadId: randomUUID(),
         file: blob
       })
-      setReview(null)
       setUploadError(null)
       if (outcome.kind === "queued") {
         void refreshPending()
@@ -237,14 +205,43 @@ const GuestRoute = (): JSX.Element => {
           ? error.kind === "conflict"
             ? null
             : error.message
-          : "Couldn't save that photo. Try again."
+          : "Couldn't save that photo. It may still be queued — check back soon."
       )
       if (error instanceof ApiError && error.kind === "conflict") {
-        setReview(null)
         setForceDone(true)
       }
     } finally {
-      setEncoding(false)
+      setSavingCount((count) => Math.max(0, count - 1))
+    }
+  }
+
+  const handleGalleryFile = async (file: File): Promise<void> => {
+    try {
+      const bitmap = await loadGalleryBitmap(file)
+      const takenAt = new Date()
+      const canvas = renderFrame(bitmap, filterPack())
+      bitmap.close()
+      setUploadError(null)
+      await persistCanvas(canvas, takenAt)
+    } catch {
+      setCameraIssue(true)
+    }
+  }
+
+  const handleCapture = (bitmap: ImageBitmap): void => {
+    try {
+      const takenAt = new Date()
+      const canvas = renderFrame(bitmap, filterPack())
+      bitmap.close()
+      setUploadError(null)
+      persistCanvas(canvas, takenAt).catch(() => {})
+    } catch {
+      try {
+        bitmap.close()
+      } catch {
+        // Bitmap cleanup is best-effort.
+      }
+      setUploadError("Couldn't save that photo. Try again.")
     }
   }
 
@@ -303,7 +300,7 @@ const GuestRoute = (): JSX.Element => {
             usedCount={() => camera()?.usedCount ?? 0}
             photoLimit={camera()!.photoLimit}
             filterPack={filterPack()}
-            pendingCount={pendingCount}
+            pendingCount={() => pendingCount() + savingCount()}
             onCapture={handleCapture}
             onPickFromGallery={handleGallery}
             onUnavailable={() => setCameraIssue(true)}
@@ -329,26 +326,28 @@ const GuestRoute = (): JSX.Element => {
               </div>
             </div>
           </Show>
+          <Show when={!cameraIssue() && uploadError() !== null}>
+            <div class="fixed inset-x-0 bottom-24 z-20 flex justify-center px-4">
+              <div class="alert alert-error max-w-md shadow-lg">
+                <span>{uploadError()}</span>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  onClick={() => setUploadError(null)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </Show>
         </div>
-      </Show>
-
-      <Show when={review() !== null}>
-        <ReviewOverlay
-          url={review()!.url}
-          busy={encoding()}
-          error={uploadError()}
-          onKeep={() => {
-            handleKeep().catch(() => {})
-          }}
-          onRetake={handleRetake}
-        />
       </Show>
 
       <Show when={phase() === "done"}>
         <DoneScreen
           title={eventQuery.data?.title ?? "the couple"}
           count={doneCount()}
-          pending={pendingCount()}
+          pending={pendingCount() + savingCount()}
           starting={createCameraMutation.isPending}
           error={doneError()}
           onStartNewRoll={handleStartNewRoll}
