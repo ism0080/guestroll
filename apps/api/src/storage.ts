@@ -7,9 +7,15 @@ export class ObjectNotFound extends Schema.TaggedError<ObjectNotFound>()(
   { key: Schema.String }
 ) {}
 
+export interface R2Object {
+  readonly bytes: Uint8Array
+  readonly contentType: string
+}
+
 export interface R2Deps {
   readonly put: (key: string, value: Uint8Array, contentType: string) => Effect.Effect<void>
   readonly get: (key: string) => Effect.Effect<Uint8Array, ObjectNotFound>
+  readonly getObject: (key: string) => Effect.Effect<R2Object, ObjectNotFound>
   readonly delete: (key: string) => Effect.Effect<void>
 }
 
@@ -37,8 +43,23 @@ export const R2Live = Layer.effect(
               )
         )
       )
+    const getObject: R2Deps["getObject"] = (key) =>
+      Effect.tryPromise(() => bucket.get(key)).pipe(
+        Effect.orDie,
+        Effect.flatMap((obj) =>
+          obj === null
+            ? Effect.fail(new ObjectNotFound({ key }))
+            : Effect.tryPromise(() => obj.arrayBuffer()).pipe(
+                Effect.orDie,
+                Effect.map((buf) => ({
+                  bytes: new Uint8Array(buf),
+                  contentType: obj.httpMetadata?.contentType ?? "application/octet-stream"
+                }))
+              )
+        )
+      )
     const remove: R2Deps["delete"] = (key) =>
       Effect.tryPromise(() => bucket.delete(key)).pipe(Effect.orDie, Effect.andThen(Effect.void))
-    return R2.of({ put, get, delete: remove })
+    return R2.of({ put, get, getObject, delete: remove })
   })
 )

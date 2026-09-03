@@ -1,0 +1,27 @@
+{
+  "name": "@guestroll/host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@guestroll/contracts": "workspace:*",
+    "@guestroll/sdk": "workspace:*",
+    "@solidjs/meta": "^0.29.4",
+    "@solidjs/router": "^1.0.0",
+    "@solidjs/start": "^2.0.4",
+    "@tanstack/solid-query": "^5.102.8",
+    "solid-js": "^1.9.15",
+    "vite": "^8.2.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "daisyui": "^5.7.27",
+    "tailwindcss": "^4.3.3"
+  }
+}

@@ -20,6 +20,7 @@ import {
 } from "@guestroll/contracts"
 
 const SlugParams = Schema.Struct({ slug: EventSlug })
+const PhotoParams = Schema.Struct({ slug: EventSlug, photoId: PhotoId })
 const PhotoPageQuery = Schema.Struct({
   limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
   cursorUploadedAt: Schema.optional(Schema.Date),
@@ -110,6 +111,16 @@ export const ListEventPhotos = HttpApiEndpoint.get(
   }
 )
 
+export const GetHostPhoto = HttpApiEndpoint.get(
+  "getHostPhoto",
+  "/events/:slug/photos/:photoId",
+  {
+    params: PhotoParams,
+    success: HttpApiSchema.NoContent,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
 export class GuestGroup extends HttpApiGroup.make("guest")
   .add(GetEvent)
   .add(CreateCamera)
@@ -121,6 +132,7 @@ export class HostGroup extends HttpApiGroup.make("host")
   .add(CreateEvent)
   .add(ListEvents)
   .add(UpdateEventStatus)
-  .add(ListEventPhotos) {}
+  .add(ListEventPhotos)
+  .add(GetHostPhoto) {}
 
 export class EventsApi extends HttpApi.make("events").add(GuestGroup).add(HostGroup) {}

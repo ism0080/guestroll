@@ -56,6 +56,25 @@
         "tailwindcss": "^4.3.3",
       },
     },
+    "apps/host": {
+      "name": "@guestroll/host",
+      "version": "0.0.0",
+      "dependencies": {
+        "@guestroll/contracts": "workspace:*",
+        "@guestroll/sdk": "workspace:*",
+        "@solidjs/meta": "^0.29.4",
+        "@solidjs/router": "^1.0.0",
+        "@solidjs/start": "^2.0.4",
+        "@tanstack/solid-query": "^5.102.8",
+        "solid-js": "^1.9.15",
+        "vite": "^8.2.2",
+      },
+      "devDependencies": {
+        "@tailwindcss/vite": "^4.3.3",
+        "daisyui": "^5.7.27",
+        "tailwindcss": "^4.3.3",
+      },
+    },
     "packages/contracts": {
       "name": "@guestroll/contracts",
       "version": "0.0.0",
@@ -309,6 +328,8 @@
     "@guestroll/domain": ["@guestroll/domain@workspace:packages/domain"],
 
     "@guestroll/guest": ["@guestroll/guest@workspace:apps/guest"],
+
+    "@guestroll/host": ["@guestroll/host@workspace:apps/host"],
 
     "@guestroll/sdk": ["@guestroll/sdk@workspace:packages/sdk"],
 

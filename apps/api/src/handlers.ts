@@ -319,4 +319,26 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         })
       })
     )
+    .handle("getHostPhoto", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const photo = yield* repo.getEventPhoto(event.id, params.photoId, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const r2 = yield* R2
+        const object = yield* r2.getObject(photo.objectKey).pipe(
+          Effect.mapError(() => _notFound())
+        )
+        return HttpServerResponse.raw(object.bytes, {
+          status: 200,
+          headers: {
+            "Content-Type": object.contentType,
+            "Cache-Control": "public, max-age=31536000, immutable"
+          }
+        })
+      })
+    )
 )

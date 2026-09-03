@@ -65,6 +65,17 @@ interface EventRow {
 const eventColumns = `id, ownerId, slug, title, coverKey, filterPack, photoLimit, status, createdAt, updatedAt`
 const photoColumns = `id, uploadId, eventId, cameraId, objectKey, thumbKey, takenAt, uploadedAt`
 
+interface PhotoRow {
+  readonly id: string
+  readonly uploadId: string
+  readonly eventId: string
+  readonly cameraId: string
+  readonly objectKey: string
+  readonly thumbKey: string
+  readonly takenAt: string
+  readonly uploadedAt: string
+}
+
 const _toEvent = (row: EventRow): Event =>
   new Event({
     id: EventId.make(row.id),
@@ -77,6 +88,18 @@ const _toEvent = (row: EventRow): Event =>
     status: row.status,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt)
+  })
+
+const _toPhoto = (row: PhotoRow): Photo =>
+  new Photo({
+    id: PhotoId.make(row.id),
+    uploadId: UploadId.make(row.uploadId),
+    eventId: EventId.make(row.eventId),
+    cameraId: CameraId.make(row.cameraId),
+    objectKey: ObjectKey.make(row.objectKey),
+    thumbKey: ObjectKey.make(row.thumbKey),
+    takenAt: new Date(row.takenAt),
+    uploadedAt: new Date(row.uploadedAt)
   })
 
 export const getEventBySlug = (
@@ -297,16 +320,6 @@ export const listEventPhotos = (
 ): Effect.Effect<ReadonlyArray<Photo>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    type PhotoRow = {
-      readonly id: string
-      readonly uploadId: string
-      readonly eventId: string
-      readonly cameraId: string
-      readonly objectKey: string
-      readonly thumbKey: string
-      readonly takenAt: string
-      readonly uploadedAt: string
-    }
     const rows = yield* Option.match(cursor, {
       onNone: () => _run(client<PhotoRow>`
         SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
@@ -321,16 +334,20 @@ export const listEventPhotos = (
             OR (p.uploadedAt = ${value.uploadedAt.toISOString()} AND p.id < ${value.id}))
         ORDER BY p.uploadedAt DESC, p.id DESC LIMIT ${limit}`)
     })
-    return rows.map((row) =>
-      new Photo({
-        id: PhotoId.make(row.id),
-        uploadId: UploadId.make(row.uploadId),
-        eventId: EventId.make(row.eventId),
-        cameraId: CameraId.make(row.cameraId),
-        objectKey: ObjectKey.make(row.objectKey),
-        thumbKey: ObjectKey.make(row.thumbKey),
-        takenAt: new Date(row.takenAt),
-        uploadedAt: new Date(row.uploadedAt)
-      })
-    )
+    return rows.map(_toPhoto)
+  })
+
+/** Fetches one uploaded photo owned by the caller, scoped to an event. */
+export const getEventPhoto = (
+  eventId: EventId,
+  photoId: PhotoId,
+  ownerId: OwnerId
+): Effect.Effect<Option.Option<Photo>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<PhotoRow>`
+      SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
+      FROM photos p JOIN events e ON e.id = p.eventId
+      WHERE p.id = ${photoId} AND p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'`)
+    return Option.map(Option.fromNullishOr(rows[0]), _toPhoto)
   })

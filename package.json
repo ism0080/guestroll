@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
-    "typecheck": "tsc --noEmit && bun run --cwd apps/api typecheck && bun run --cwd apps/guest typecheck",
+    "typecheck": "tsc --noEmit && bun run --cwd apps/api typecheck && bun run --cwd apps/guest typecheck && bun run --cwd apps/host typecheck",
     "lint": "oxlint",
     "test": "bun test"
   },

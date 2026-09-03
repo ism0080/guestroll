@@ -23,7 +23,14 @@ there is no public gallery.
   torch, client-side JPEG compression (<2 MiB), film-filtered review,
   camera-roll import, idempotent multipart upload, shot counter + done state,
   PWA manifest/icons. Deployed via `Cloudflare.Website.Vite` in the same stack.
-- **Host dashboard:** not started.
+- **Host dashboard:** done — SolidStart v2 SPA in `apps/host` (`ssr: false`),
+  daisyUI 5 (`cupcake` theme). Passcode login → event list (create, `draft →
+  live` toggle) → per-event live photo grid (20s poll while focused, refreshes
+  on window focus) with lightbox, plus guest share-link copy. Photos are
+  served by a new host-only API endpoint (`GET /events/:slug/photos/:photoId`)
+  that streams the R2 object with its content type. Deployed via
+  `Cloudflare.Website.Vite("Host")` with `VITE_API_BASE` + `VITE_GUEST_BASE`
+  inlined from the API + guest Worker URLs.
 
 ## Goal
 
@@ -400,8 +407,12 @@ Status: ✅ done · ◻️ pending
    persistence across reloads. Deployed as `Cloudflare.Website.Vite("Guest")`
    with `VITE_API_BASE` inlined from the API Worker's URL. No gallery —
    upload is one-way.
-6. **Host dashboard:** ◻️ passcode → event list → live photo grid → downloads.
-   daisyUI dashboard components (tables, modals, toasts, forms).
+6. **Host dashboard:** ✅ SolidStart v2 SPA in `apps/host` (`ssr: false`),
+   daisyUI 5 (`cupcake`). Passcode login → event list (create, `draft → live`)
+   → live photo grid (20s poll + window-focus refresh) with lightbox, and guest
+   share-link copy. Host-only photo endpoint serves R2 bytes. Deployed as
+   `Cloudflare.Website.Vite("Host")`. ◻️ rename/duplicate, downloads (ZIP),
+   QR + printable table cards.
 7. **Polish:** ◻️ QR + printable table cards, filters, PWA install.
 
 ## Known risks / open items
@@ -416,5 +427,9 @@ Status: ✅ done · ◻️ pending
   `waitUntil`) for the ZIP build so large download jobs can outlive the
   request.
 - Owner auth uses a configured passcode exchanged for a signed, expiring,
-  HTTP-only session cookie. The host dashboard still needs to implement the
-  login form and cookie-bearing API client.
+  HTTP-only session cookie (`SameSite=None; Secure`) — the host dashboard
+  sends it via `credentials: "include"`, and the photo `<img>` tags carry it
+  cross-site. Note: browsers blocking third-party cookies (Safari ITP, Chrome
+  third-party-cookie deprecation) can break cookie auth when the dashboard and
+  API are on different origins. If that bites, revisit with a first-party
+  origin or token-in-memory scheme.
