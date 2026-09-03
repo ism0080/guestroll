@@ -19,7 +19,6 @@ import {
   type SessionSnapshot
 } from "~/lib/api"
 import {
-  CameraIcon,
   DuplicateIcon,
   EditIcon,
   LogoutIcon,
@@ -28,6 +27,7 @@ import {
   QrIcon,
   TrashIcon
 } from "~/components/icons"
+import { CameraBody } from "~/components/camera-art"
 import { LoginScreen } from "~/components/LoginScreen"
 import { NewEventModal } from "~/components/NewEventModal"
 import { RenameEventModal } from "~/components/RenameEventModal"
@@ -161,31 +161,30 @@ const Home = (): JSX.Element => {
   return (
     <>
       <Show when={state() === "loading"}>
-        <div class="flex min-h-dvh flex-col items-center justify-center gap-4">
-          <span class="loading loading-spinner loading-lg text-primary" />
-          <span class="text-base-content/60">Loading your events…</span>
+        <div class="flex min-h-dvh flex-col items-center justify-center gap-5 px-6">
+          <CameraBody class="w-40 animate-pulse" />
+          <div class="film-counter flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/50">
+            <span class="loading loading-spinner loading-sm text-primary" />
+            Loading your events…
+          </div>
         </div>
       </Show>
 
       <Show when={state() === "error"}>
         <div class="flex min-h-dvh flex-col items-center justify-center px-6">
-          <div class="card w-full max-w-md bg-base-100 shadow-xl">
-            <div class="card-body gap-3 text-center">
-              <h1 class="card-title justify-center text-2xl">Can't reach the service</h1>
-              <p class="text-base-content/80">
-                Check your connection and try again.
-              </p>
-              <button
-                type="button"
-                class="btn btn-primary mt-2"
-                onClick={() => {
-                  queryClient.clear()
-                  sessionQuery.refetch().catch(() => {})
-                }}
-              >
-                Try again
-              </button>
-            </div>
+          <div class="paper-card w-full max-w-sm p-6 text-center">
+            <h1 class="text-2xl font-extrabold text-base-content">Can't reach the service</h1>
+            <p class="mt-2 text-base-content/70">Check your connection and try again.</p>
+            <button
+              type="button"
+              class="shutter-btn btn btn-primary btn-lg mt-5 w-full border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
+              onClick={() => {
+                queryClient.clear()
+                sessionQuery.refetch().catch(() => {})
+              }}
+            >
+              Try again
+            </button>
           </div>
         </div>
       </Show>
@@ -203,17 +202,17 @@ const Home = (): JSX.Element => {
         <div class="mx-auto max-w-5xl px-4 py-8">
           <header class="mb-8 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-              <div class="flex h-12 w-12 items-center justify-center rounded-box bg-primary text-primary-content">
-                <CameraIcon class="h-6 w-6" />
-              </div>
+              <CameraBody class="w-16 shrink-0" />
               <div>
-                <h1 class="text-2xl font-bold">Guestroll</h1>
-                <p class="text-sm text-base-content/60">Your guest photo rolls</p>
+                <p class="film-counter text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
+                  Guestroll
+                </p>
+                <h1 class="text-2xl font-extrabold leading-tight">Your guest rolls</h1>
               </div>
             </div>
             <button
               type="button"
-              class="btn btn-ghost"
+              class="btn btn-ghost gap-2"
               onClick={() => logoutMutation.mutate()}
             >
               <LogoutIcon class="h-5 w-5" />
@@ -222,10 +221,10 @@ const Home = (): JSX.Element => {
           </header>
 
           <div class="mb-6 flex items-center justify-between">
-            <h2 class="text-lg font-semibold">Events</h2>
+            <h2 class="text-lg font-bold">Events</h2>
             <button
               type="button"
-              class="btn btn-primary"
+              class="shutter-btn btn btn-primary gap-2 border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
               onClick={() => setShowCreate(true)}
             >
               <PlusIcon class="h-5 w-5" />
@@ -234,111 +233,115 @@ const Home = (): JSX.Element => {
           </div>
 
           <Show when={deleteError() !== null}>
-            <div class="alert alert-error mb-4">
-              <span>{deleteError()}</span>
+            <div class="mb-4 rounded-field border-2 border-error bg-error/10 p-3 text-sm text-base-content">
+              {deleteError()}
             </div>
           </Show>
 
           <Show
             when={sessionQuery.data!.events.length > 0}
             fallback={
-              <div class="card bg-base-100 shadow-xl">
-                <div class="card-body items-center gap-2 text-center">
-                  <p class="text-base-content/70">
-                    No events yet — create your first guest roll.
-                  </p>
-                </div>
+              <div class="paper-card p-8 text-center">
+                <CameraBody class="mx-auto mb-4 w-32 opacity-80" />
+                <p class="text-base-content/70">
+                  No events yet — create your first guest roll.
+                </p>
               </div>
             }
           >
             <div class="grid gap-4 sm:grid-cols-2">
               <For each={sessionQuery.data!.events}>
                 {(event) => (
-                  <div class="card bg-base-100 shadow-xl">
-                    <div class="card-body gap-3">
-                      <div class="flex items-start justify-between gap-2">
-                        <h3 class="card-title">{event.title}</h3>
-                        <div class="flex items-center gap-1">
-                          <Show
-                            when={event.status === "live"}
-                            fallback={<span class="badge badge-ghost">Draft</span>}
+                  <div class="rounded-box border-2 border-neutral bg-base-100 p-5 shadow-[4px_4px_0_0_var(--guestroll-ink)] transition-transform hover:-translate-y-0.5">
+                    <div class="flex items-start justify-between gap-2">
+                      <h3 class="text-lg font-bold leading-tight">{event.title}</h3>
+                      <div class="flex items-center gap-1">
+                        <Show
+                          when={event.status === "live"}
+                          fallback={
+                            <span class="film-counter rounded-md border-2 border-neutral bg-base-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
+                              Draft
+                            </span>
+                          }
+                        >
+                          <span class="film-counter inline-flex items-center gap-1 rounded-md border-2 border-neutral bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-secondary-content">
+                            <span class="h-1.5 w-1.5 rounded-full bg-secondary-content" />
+                            Live
+                          </span>
+                        </Show>
+                        <div class="dropdown dropdown-end">
+                          <div
+                            tabindex="0"
+                            role="button"
+                            class="btn btn-ghost btn-sm px-2"
+                            aria-label={`Actions for ${event.title}`}
                           >
-                            <span class="badge badge-success">Live</span>
-                          </Show>
-                          <div class="dropdown dropdown-end">
-                            <div
-                              tabindex="0"
-                              role="button"
-                              class="btn btn-ghost btn-sm px-2"
-                              aria-label={`Actions for ${event.title}`}
-                            >
-                              <MoreIcon class="h-5 w-5" />
-                            </div>
-                            <ul
-                              tabindex="0"
-                              class="dropdown-content menu rounded-box z-10 w-44 bg-base-100 p-2 shadow"
-                            >
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={() => setRenameTarget(event)}
-                                >
-                                  <EditIcon class="h-4 w-4" />
-                                  Rename
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={() => setShotLimitTarget(event)}
-                                >
-                                  <EditIcon class="h-4 w-4" />
-                                  Shot count
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={() => duplicateMutation.mutate(event.slug)}
-                                >
-                                  <DuplicateIcon class="h-4 w-4" />
-                                  Duplicate
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  type="button"
-                                  class="text-error"
-                                  onClick={() => confirmDelete(event)}
-                                >
-                                  <TrashIcon class="h-4 w-4" />
-                                  Delete
-                                </button>
-                              </li>
-                            </ul>
+                            <MoreIcon class="h-5 w-5" />
                           </div>
+                          <ul
+                            tabindex="0"
+                            class="dropdown-content menu rounded-box z-10 w-44 border-2 border-neutral bg-base-100 p-2 shadow-[4px_4px_0_0_var(--guestroll-ink)]"
+                          >
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => setRenameTarget(event)}
+                              >
+                                <EditIcon class="h-4 w-4" />
+                                Rename
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => setShotLimitTarget(event)}
+                              >
+                                <EditIcon class="h-4 w-4" />
+                                Shot count
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => duplicateMutation.mutate(event.slug)}
+                              >
+                                <DuplicateIcon class="h-4 w-4" />
+                                Duplicate
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                class="text-error"
+                                onClick={() => confirmDelete(event)}
+                              >
+                                <TrashIcon class="h-4 w-4" />
+                                Delete
+                              </button>
+                            </li>
+                          </ul>
                         </div>
                       </div>
-                      <p class="text-sm text-base-content/60">
-                        {event.photoLimit} shots per guest
-                      </p>
-                      <div class="flex gap-2">
-                        <button
-                          type="button"
-                          class="btn btn-primary flex-1"
-                          onClick={() => navigate(`/event/${event.slug}`)}
-                        >
-                          Open roll
-                        </button>
-                        <button
-                          type="button"
-                          class="btn btn-outline"
-                          aria-label={`Share ${event.title}`}
-                          onClick={() => setShareEvent(event)}
-                        >
-                          <QrIcon class="h-5 w-5" />
-                        </button>
-                      </div>
+                    </div>
+                    <p class="film-counter mt-2 text-sm text-base-content/60">
+                      {event.photoLimit} shots per guest
+                    </p>
+                    <div class="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        class="shutter-btn btn btn-primary flex-1 border-2 border-neutral"
+                        onClick={() => navigate(`/event/${event.slug}`)}
+                      >
+                        Open roll
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-ghost border-2 border-neutral"
+                        aria-label={`Share ${event.title}`}
+                        onClick={() => setShareEvent(event)}
+                      >
+                        <QrIcon class="h-5 w-5" />
+                      </button>
                     </div>
                   </div>
                 )}

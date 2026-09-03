@@ -33,10 +33,10 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
     <>
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
         <div class="w-full max-w-sm">
-          <div class="card bg-base-100 shadow-2xl">
+          <div class="paper-card">
             <div class="card-body items-center gap-4">
               <div class="flex w-full items-start justify-between">
-                <h2 class="card-title text-2xl">Share</h2>
+                <h2 class="card-title text-2xl font-extrabold">Share</h2>
                 <button
                   type="button"
                   class="btn btn-circle btn-ghost btn-sm"
@@ -49,7 +49,7 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
 
               <p class="text-center text-base-content/70">{props.title}</p>
 
-              <div class="rounded-box bg-white p-3 shadow-sm">
+              <div class="rounded-box border-2 border-neutral bg-white p-3">
                 <Show
                   when={qr()}
                   fallback={
@@ -62,16 +62,20 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
                 </Show>
               </div>
 
-              <p class="break-all text-center text-sm text-base-content/80">{link}</p>
+              <p class="film-counter break-all text-center text-sm text-base-content/80">{link}</p>
 
               <div class="flex w-full flex-col gap-2">
-                <button type="button" class="btn btn-primary" onClick={copyLink}>
+                <button
+                  type="button"
+                  class="shutter-btn btn btn-primary border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
+                  onClick={copyLink}
+                >
                   {copied() ? <CheckIcon class="h-5 w-5" /> : <CopyIcon class="h-5 w-5" />}
                   {copied() ? "Link copied" : "Copy link"}
                 </button>
                 <button
                   type="button"
-                  class="btn btn-outline"
+                  class="btn btn-ghost border-2 border-neutral"
                   disabled={qr() === undefined}
                   onClick={() => window.print()}
                 >

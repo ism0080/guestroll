@@ -23,10 +23,10 @@ export const RenameEventModal = (props: RenameEventModalProps): JSX.Element => {
   return (
     <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
       <div class="w-full max-w-md">
-        <form class="card bg-base-100 shadow-2xl" onSubmit={submit}>
+        <form class="paper-card" onSubmit={submit}>
           <div class="card-body gap-4">
             <div class="flex items-start justify-between">
-              <h2 class="card-title text-2xl">Rename event</h2>
+              <h2 class="card-title text-2xl font-extrabold">Rename event</h2>
               <button
                 type="button"
                 class="btn btn-circle btn-ghost btn-sm"
@@ -52,12 +52,16 @@ export const RenameEventModal = (props: RenameEventModalProps): JSX.Element => {
             </label>
 
             <Show when={props.error !== null}>
-              <div class="alert alert-error py-2">
-                <span>{props.error}</span>
+              <div class="rounded-field border-2 border-error bg-error/10 p-3 text-sm text-base-content">
+                {props.error}
               </div>
             </Show>
 
-            <button type="submit" class="btn btn-primary btn-lg" disabled={canSubmit()}>
+            <button
+              type="submit"
+              class="shutter-btn btn btn-primary btn-lg border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
+              disabled={canSubmit()}
+            >
               {props.busy ? <span class="loading loading-spinner" /> : "Save"}
             </button>
           </div>

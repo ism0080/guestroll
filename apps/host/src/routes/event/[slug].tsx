@@ -15,6 +15,7 @@ import {
   updateEventStatus
 } from "~/lib/api"
 import { CheckIcon, CopyIcon, EditIcon, QrIcon } from "~/components/icons"
+import { CameraBody } from "~/components/camera-art"
 import { DownloadButton } from "~/components/DownloadButton"
 import { ShareModal } from "~/components/ShareModal"
 import { ShotLimitModal } from "~/components/ShotLimitModal"
@@ -110,31 +111,30 @@ const EventDetail = (): JSX.Element => {
   return (
     <>
       <Show when={sessionQuery.isPending}>
-        <div class="flex min-h-dvh flex-col items-center justify-center gap-4">
-          <span class="loading loading-spinner loading-lg text-primary" />
-          <span class="text-base-content/60">Loading the roll…</span>
+        <div class="flex min-h-dvh flex-col items-center justify-center gap-5 px-6">
+          <CameraBody class="w-40 animate-pulse" />
+          <div class="film-counter flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/50">
+            <span class="loading loading-spinner loading-sm text-primary" />
+            Loading the roll…
+          </div>
         </div>
       </Show>
 
       <Show when={sessionQuery.isError}>
         <div class="flex min-h-dvh flex-col items-center justify-center px-6">
-          <div class="card w-full max-w-md bg-base-100 shadow-xl">
-            <div class="card-body gap-3 text-center">
-              <h1 class="card-title justify-center text-2xl">Can't reach the service</h1>
-              <p class="text-base-content/80">
-                Check your connection and try again.
-              </p>
-              <button
-                type="button"
-                class="btn btn-primary mt-2"
-                onClick={() => {
-                  queryClient.clear()
-                  sessionQuery.refetch().catch(() => {})
-                }}
-              >
-                Try again
-              </button>
-            </div>
+          <div class="paper-card w-full max-w-sm p-6 text-center">
+            <h1 class="text-2xl font-extrabold text-base-content">Can't reach the service</h1>
+            <p class="mt-2 text-base-content/70">Check your connection and try again.</p>
+            <button
+              type="button"
+              class="shutter-btn btn btn-primary btn-lg mt-5 w-full border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
+              onClick={() => {
+                queryClient.clear()
+                sessionQuery.refetch().catch(() => {})
+              }}
+            >
+              Try again
+            </button>
           </div>
         </div>
       </Show>
@@ -145,17 +145,15 @@ const EventDetail = (): JSX.Element => {
 
       <Show when={sessionQuery.data?.authenticated === true && event() === undefined}>
         <div class="flex min-h-dvh flex-col items-center justify-center px-6">
-          <div class="card w-full max-w-md bg-base-100 shadow-xl">
-            <div class="card-body gap-3 text-center">
-              <h1 class="card-title justify-center text-2xl">Event not found</h1>
-              <button
-                type="button"
-                class="btn btn-primary mt-2"
-                onClick={() => navigate("/")}
-              >
-                Back to events
-              </button>
-            </div>
+          <div class="paper-card w-full max-w-sm p-6 text-center">
+            <h1 class="text-2xl font-extrabold text-base-content">Event not found</h1>
+            <button
+              type="button"
+              class="shutter-btn btn btn-primary btn-lg mt-5 w-full border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
+              onClick={() => navigate("/")}
+            >
+              Back to events
+            </button>
           </div>
         </div>
       </Show>
@@ -173,16 +171,24 @@ const EventDetail = (): JSX.Element => {
                 ← All events
               </button>
               <div class="flex items-center gap-3">
-                <h1 class="text-3xl font-bold">{event()!.title}</h1>
+                <h1 class="text-3xl font-extrabold">{event()!.title}</h1>
                 <Show
                   when={event()!.status === "live"}
-                  fallback={<span class="badge badge-ghost">Draft</span>}
+                  fallback={
+                    <span class="film-counter rounded-md border-2 border-neutral bg-base-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
+                      Draft
+                    </span>
+                  }
                 >
-                  <span class="badge badge-success">Live</span>
+                  <span class="film-counter inline-flex items-center gap-1 rounded-md border-2 border-neutral bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-secondary-content">
+                    <span class="h-1.5 w-1.5 rounded-full bg-secondary-content" />
+                    Live
+                  </span>
                 </Show>
               </div>
-              <p class="mt-1 text-sm text-base-content/60">
-                {photosQuery.data?.length ?? 0} photos · {event()!.photoLimit} shots per guest
+              <p class="film-counter mt-2 flex items-center gap-1 text-sm text-base-content/60">
+                <span class="font-bold text-primary">{photosQuery.data?.length ?? 0}</span> photos
+                · {event()!.photoLimit} shots per guest
                 <button
                   type="button"
                   class="btn btn-ghost btn-xs ml-1"
@@ -198,7 +204,7 @@ const EventDetail = (): JSX.Element => {
             <div class="flex flex-col items-stretch gap-2">
               <button
                 type="button"
-                class="btn btn-outline btn-sm"
+                class="btn btn-ghost btn-sm border-2 border-neutral"
                 onClick={() => setShareOpen(true)}
               >
                 <QrIcon class="h-4 w-4" />
@@ -207,7 +213,7 @@ const EventDetail = (): JSX.Element => {
               <DownloadButton slug={slug} />
               <button
                 type="button"
-                class="btn btn-outline btn-sm"
+                class="btn btn-ghost btn-sm border-2 border-neutral"
                 onClick={copyLink}
               >
                 {copied() ? <CheckIcon class="h-4 w-4" /> : <CopyIcon class="h-4 w-4" />}
@@ -215,7 +221,7 @@ const EventDetail = (): JSX.Element => {
               </button>
               <button
                 type="button"
-                class="btn btn-primary btn-sm"
+                class="shutter-btn btn btn-primary btn-sm border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
                 disabled={statusMutation.isPending}
                 onClick={() =>
                   statusMutation.mutate(event()!.status === "live" ? "draft" : "live")
@@ -227,41 +233,49 @@ const EventDetail = (): JSX.Element => {
           </div>
 
           <Show when={(camerasQuery.data?.length ?? 0) > 0}>
-            <div class="collapse collapse-arrow mb-6 bg-base-100 shadow-xl">
+            <div class="collapse collapse-arrow mb-6 rounded-box border-2 border-neutral bg-base-100 shadow-[4px_4px_0_0_var(--guestroll-ink)]">
               <input type="checkbox" />
               <div class="collapse-title flex items-center justify-between gap-3">
-                <h2 class="text-lg font-semibold">Guest rolls</h2>
-                <span class="badge badge-ghost">{camerasQuery.data?.length}</span>
+                <h2 class="text-lg font-bold">Guest rolls</h2>
+                <span class="film-counter rounded-md border-2 border-neutral bg-base-200 px-2 py-0.5 text-xs font-bold">
+                  {camerasQuery.data?.length}
+                </span>
               </div>
               <div class="collapse-content">
                 <p class="text-sm text-base-content/60">
                   Reset a roll to let that device start a new set of photos. Their photos
                   stay in the event.
                 </p>
-                <ul class="divide-y divide-base-300">
+                <ul class="mt-2 divide-y-2 divide-base-300">
                   <For each={camerasQuery.data}>
                     {(roll) => (
-                      <li class="flex items-center justify-between gap-4 py-2">
+                      <li class="flex items-center justify-between gap-4 py-3">
                         <div class="min-w-0">
-                          <p class="truncate font-medium">{roll.guestName ?? "Anonymous guest"}</p>
-                          <p class="text-sm text-base-content/60">
+                          <p class="truncate font-semibold">{roll.guestName ?? "Anonymous guest"}</p>
+                          <p class="film-counter text-sm text-base-content/60">
                             {roll.usedCount}/{roll.photoLimit} photos
                           </p>
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
                           <Show when={rollStatus(roll) === "in-progress"}>
-                            <span class="badge badge-success">In progress</span>
+                            <span class="film-counter rounded-md border-2 border-neutral bg-secondary px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-secondary-content">
+                              In progress
+                            </span>
                           </Show>
                           <Show when={rollStatus(roll) === "full"}>
-                            <span class="badge badge-warning">Full</span>
+                            <span class="film-counter rounded-md border-2 border-neutral bg-accent px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-content">
+                              Full
+                            </span>
                           </Show>
                           <Show when={rollStatus(roll) === "reset"}>
-                            <span class="badge badge-ghost">Reset</span>
+                            <span class="film-counter rounded-md border-2 border-neutral bg-base-200 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
+                              Reset
+                            </span>
                           </Show>
                           <Show when={roll.resetAt === undefined}>
                             <button
                               type="button"
-                              class="btn btn-outline btn-sm"
+                              class="btn btn-ghost btn-sm border-2 border-neutral"
                               disabled={resetMutation.isPending}
                               onClick={() => resetMutation.mutate(roll.id)}
                             >
@@ -278,11 +292,11 @@ const EventDetail = (): JSX.Element => {
           </Show>
 
           <Show when={photosQuery.isError}>
-            <div class="alert alert-warning mb-4">
+            <div class="mb-4 flex items-center justify-between gap-3 rounded-field border-2 border-warning bg-warning/10 p-3 text-sm">
               <span>Couldn't refresh photos.</span>
               <button
                 type="button"
-                class="btn btn-sm"
+                class="btn btn-ghost btn-sm border-2 border-neutral"
                 onClick={() => photosQuery.refetch().catch(() => {})}
               >
                 Retry
@@ -293,25 +307,28 @@ const EventDetail = (): JSX.Element => {
           <Show
             when={(photosQuery.data?.length ?? 0) > 0}
             fallback={
-              <div class="card bg-base-100 shadow-xl">
-                <div class="card-body items-center gap-2 text-center">
-                  <Show
-                    when={event()!.status === "live"}
-                    fallback={
-                      <p class="text-base-content/70">
-                        This roll is a draft. Go live so guests can start snapping.
-                      </p>
-                    }
-                  >
+              <div class="paper-card p-8 text-center">
+                <CameraBody class="mx-auto mb-4 w-32 opacity-80" />
+                <Show
+                  when={event()!.status === "live"}
+                  fallback={
                     <p class="text-base-content/70">
-                      No photos yet — share the link and wait for the first shots to roll in.
+                      This roll is a draft. Go live so guests can start snapping.
                     </p>
-                  </Show>
-                  <button type="button" class="btn btn-sm mt-2" onClick={copyLink}>
-                    <CopyIcon class="h-4 w-4" />
-                    Copy guest link
-                  </button>
-                </div>
+                  }
+                >
+                  <p class="text-base-content/70">
+                    No photos yet — share the link and wait for the first shots to roll in.
+                  </p>
+                </Show>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm mt-4 border-2 border-neutral"
+                  onClick={copyLink}
+                >
+                  <CopyIcon class="h-4 w-4" />
+                  Copy guest link
+                </button>
               </div>
             }
           >

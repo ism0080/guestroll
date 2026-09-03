@@ -67,7 +67,7 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
     <div class="flex flex-col items-stretch gap-1">
       <button
         type="button"
-        class="btn btn-outline btn-sm"
+        class="btn btn-ghost btn-sm border-2 border-neutral"
         disabled={phase() === "building"}
         onClick={() => void start()}
       >
