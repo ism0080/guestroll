@@ -217,6 +217,21 @@ export const updateEventTitle = (
     return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
   })
 
+export const updateEventPhotoLimit = (
+  id: EventId,
+  ownerId: OwnerId,
+  photoLimit: number,
+  now: Date
+): Effect.Effect<Option.Option<Event>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<EventRow>`
+      UPDATE events SET photoLimit = ${photoLimit}, updatedAt = ${now.toISOString()}
+      WHERE id = ${id} AND ownerId = ${ownerId}
+      RETURNING ${client.literal(eventColumns)}`)
+    return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
+  })
+
 interface CameraRow {
   readonly id: string
   readonly eventId: string

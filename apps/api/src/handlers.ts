@@ -325,6 +325,20 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         })
       })
     )
+    .handle("updateEventPhotoLimit", ({ params, payload, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const now = yield* _nowDate
+        const updated = yield* repo.updateEventPhotoLimit(event.id, ownerId, payload.photoLimit, now)
+        return yield* Option.match(updated, {
+          onNone: () => Effect.fail(_badRequest()),
+          onSome: (limited) => Effect.succeed(eventToPublic(limited))
+        })
+      })
+    )
     .handle("duplicateEvent", ({ params, request }) =>
       Effect.gen(function* () {
         const ownerId = yield* _requireHost(request)

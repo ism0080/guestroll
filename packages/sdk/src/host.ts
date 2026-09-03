@@ -2,6 +2,7 @@ import { Effect } from "effect"
 import {
   CameraId,
   EventCreate,
+  EventPhotoLimit,
   EventRename,
   EventSlug,
   EventStatusUpdate,
@@ -39,6 +40,7 @@ export interface HostClient {
   readonly listEvents: () => Promise<ReadonlyArray<EventPublic>>
   readonly updateEventStatus: (slug: string, status: EventStatus) => Promise<EventPublic>
   readonly renameEvent: (slug: string, title: string) => Promise<EventPublic>
+  readonly updateEventPhotoLimit: (slug: string, photoLimit: number) => Promise<EventPublic>
   readonly duplicateEvent: (slug: string) => Promise<EventPublic>
   readonly deleteEvent: (slug: string) => Promise<void>
   readonly listEventPhotos: (slug: string, query?: PhotoPageQuery) => Promise<HostPhotoPage>
@@ -71,6 +73,11 @@ export const createHostClient = (options: ApiClientOptions): Promise<HostClient>
       runApi(client.host.renameEvent({
         params: { slug: parse(EventSlug, slug, "Invalid event link") },
         payload: parse(EventRename, { title }, "Invalid event title")
+      })),
+    updateEventPhotoLimit: (slug, photoLimit) =>
+      runApi(client.host.updateEventPhotoLimit({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") },
+        payload: parse(EventPhotoLimit, { photoLimit }, "Invalid shot count")
       })),
     duplicateEvent: (slug) =>
       runApi(client.host.duplicateEvent({

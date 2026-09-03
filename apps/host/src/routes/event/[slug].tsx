@@ -11,11 +11,13 @@ import {
   loadSession,
   resetCamera,
   SESSION_QUERY_KEY,
+  updateEventPhotoLimit,
   updateEventStatus
 } from "~/lib/api"
-import { CheckIcon, CopyIcon, QrIcon } from "~/components/icons"
+import { CheckIcon, CopyIcon, EditIcon, QrIcon } from "~/components/icons"
 import { DownloadButton } from "~/components/DownloadButton"
 import { ShareModal } from "~/components/ShareModal"
+import { ShotLimitModal } from "~/components/ShotLimitModal"
 import { PhotoGrid } from "~/components/PhotoGrid"
 import { Lightbox } from "~/components/Lightbox"
 
@@ -28,6 +30,7 @@ const EventDetail = (): JSX.Element => {
   const [selected, setSelected] = createSignal<HostPhoto | null>(null)
   const [copied, setCopied] = createSignal(false)
   const [shareOpen, setShareOpen] = createSignal(false)
+  const [shotLimitOpen, setShotLimitOpen] = createSignal(false)
 
   onMount(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -69,6 +72,15 @@ const EventDetail = (): JSX.Element => {
     enabled: sessionQuery.data?.authenticated === true && event() !== undefined,
     retry: false,
     refetchOnWindowFocus: true
+  }))
+
+  const shotLimitMutation = createMutation(() => ({
+    mutationFn: (photoLimit: number) => updateEventPhotoLimit(slug, photoLimit),
+    onSuccess: () => {
+      setShotLimitOpen(false)
+      void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+      void queryClient.invalidateQueries({ queryKey: ["host", "cameras", slug] })
+    }
   }))
 
   const resetMutation = createMutation(() => ({
@@ -170,7 +182,16 @@ const EventDetail = (): JSX.Element => {
                 </Show>
               </div>
               <p class="mt-1 text-sm text-base-content/60">
-                {photosQuery.data?.length ?? 0} photos
+                {photosQuery.data?.length ?? 0} photos · {event()!.photoLimit} shots per guest
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs ml-1"
+                  aria-label="Edit shot count"
+                  onClick={() => setShotLimitOpen(true)}
+                >
+                  <EditIcon class="h-3.5 w-3.5" />
+                  Edit
+                </button>
               </p>
             </div>
 
@@ -206,12 +227,13 @@ const EventDetail = (): JSX.Element => {
           </div>
 
           <Show when={(camerasQuery.data?.length ?? 0) > 0}>
-            <div class="card mb-6 bg-base-100 shadow-xl">
-              <div class="card-body">
-                <div class="flex items-center justify-between gap-3">
-                  <h2 class="card-title text-lg">Guest rolls</h2>
-                  <span class="badge badge-ghost">{camerasQuery.data?.length}</span>
-                </div>
+            <div class="collapse collapse-arrow mb-6 bg-base-100 shadow-xl">
+              <input type="checkbox" />
+              <div class="collapse-title flex items-center justify-between gap-3">
+                <h2 class="text-lg font-semibold">Guest rolls</h2>
+                <span class="badge badge-ghost">{camerasQuery.data?.length}</span>
+              </div>
+              <div class="collapse-content">
                 <p class="text-sm text-base-content/60">
                   Reset a roll to let that device start a new set of photos. Their photos
                   stay in the event.
@@ -307,6 +329,16 @@ const EventDetail = (): JSX.Element => {
 
       <Show when={shareOpen() && event() !== undefined}>
         <ShareModal slug={slug} title={event()!.title} onClose={() => setShareOpen(false)} />
+      </Show>
+
+      <Show when={shotLimitOpen() && event() !== undefined}>
+        <ShotLimitModal
+          busy={shotLimitMutation.isPending}
+          error={shotLimitMutation.error ? "Couldn't update the shot count. Try again." : null}
+          initialLimit={event()!.photoLimit}
+          onClose={() => setShotLimitOpen(false)}
+          onSave={(photoLimit) => shotLimitMutation.mutate(photoLimit)}
+        />
       </Show>
     </>
   )

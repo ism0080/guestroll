@@ -7,15 +7,11 @@ const PollIntervalMs = 3000
 const MaxPolls = 180
 
 const startFileDownload = async (slug: string): Promise<void> => {
+  const { saveBlob } = await import("~/lib/share")
   const response = await fetch(downloadFileUrl(slug), { credentials: "include" })
   if (!response.ok) throw new Error(`Download failed with status ${response.status}`)
   const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement("a")
-  anchor.href = url
-  anchor.download = `${slug}-photos.zip`
-  anchor.click()
-  URL.revokeObjectURL(url)
+  await saveBlob(blob, `${slug}-photos.zip`, { title: `${slug}-photos.zip` })
 }
 
 export const DownloadButton = (props: { readonly slug: string }): JSX.Element => {

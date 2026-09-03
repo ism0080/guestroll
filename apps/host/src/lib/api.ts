@@ -55,6 +55,9 @@ export const updateEventStatus = (slug: string, status: EventStatus): Promise<Ev
 export const renameEvent = (slug: string, title: string): Promise<EventPublic> =>
   hostClient().then((client) => client.renameEvent(slug, title))
 
+export const updateEventPhotoLimit = (slug: string, photoLimit: number): Promise<EventPublic> =>
+  hostClient().then((client) => client.updateEventPhotoLimit(slug, photoLimit))
+
 export const duplicateEvent = (slug: string): Promise<EventPublic> =>
   hostClient().then((client) => client.duplicateEvent(slug))
 
@@ -137,24 +140,17 @@ const _extensionForContentType = (contentType: string): string => {
 /**
  * Downloads a single photo's bytes via the host-only photo endpoint
  * (session cookie via `credentials: "include"`) and saves it with a
- * per-photo filename.
+ * per-photo filename. On mobile the native share sheet is used so the
+ * photo can be saved straight to the camera roll; elsewhere an anchor
+ * download is used.
  */
 export const downloadSinglePhoto = async (slug: string, photoId: string): Promise<void> => {
+  const { saveBlob } = await import("./share.ts")
   const response = await fetch(photoImageUrl(slug, photoId), { credentials: "include" })
   if (!response.ok) throw new Error(`Photo download failed with status ${response.status}`)
   const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  try {
-    const anchor = document.createElement("a")
-    anchor.href = url
-    anchor.download = `${slug}-${photoId}.${_extensionForContentType(blob.type)}`
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-  } finally {
-    // Let the browser start the download before revoking.
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
+  const filename = `${slug}-${photoId}.${_extensionForContentType(blob.type)}`
+  await saveBlob(blob, filename, { title: filename })
 }
 
 /** Guest-facing link for an event (QR target / share). */

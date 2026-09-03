@@ -14,6 +14,7 @@ import {
   login,
   logout,
   renameEvent,
+  updateEventPhotoLimit,
   SESSION_QUERY_KEY,
   type SessionSnapshot
 } from "~/lib/api"
@@ -31,6 +32,7 @@ import { LoginScreen } from "~/components/LoginScreen"
 import { NewEventModal } from "~/components/NewEventModal"
 import { RenameEventModal } from "~/components/RenameEventModal"
 import { ShareModal } from "~/components/ShareModal"
+import { ShotLimitModal } from "~/components/ShotLimitModal"
 
 const Home = (): JSX.Element => {
   const navigate = useNavigate()
@@ -38,6 +40,7 @@ const Home = (): JSX.Element => {
   const [showCreate, setShowCreate] = createSignal(false)
   const [shareEvent, setShareEvent] = createSignal<EventPublic | null>(null)
   const [renameTarget, setRenameTarget] = createSignal<EventPublic | null>(null)
+  const [shotLimitTarget, setShotLimitTarget] = createSignal<EventPublic | null>(null)
 
   const sessionQuery = createQuery(() => ({
     queryKey: SESSION_QUERY_KEY,
@@ -85,6 +88,15 @@ const Home = (): JSX.Element => {
     }
   }))
 
+  const shotLimitMutation = createMutation(() => ({
+    mutationFn: ({ slug, photoLimit }: { slug: string; photoLimit: number }) =>
+      updateEventPhotoLimit(slug, photoLimit),
+    onSuccess: () => {
+      setShotLimitTarget(null)
+      void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+    }
+  }))
+
   const deleteMutation = createMutation(() => ({
     mutationFn: (slug: string) => deleteEvent(slug),
     onSuccess: () => {
@@ -123,6 +135,15 @@ const Home = (): JSX.Element => {
       return "Check the title and try again."
     }
     return error instanceof ApiError ? error.message : "Couldn't rename the event. Try again."
+  })
+
+  const shotLimitError = createMemo<string | null>(() => {
+    const error = shotLimitMutation.error
+    if (error === null) return null
+    if (error instanceof ApiError && error.kind === "bad-request") {
+      return "Enter a whole number between 1 and 100."
+    }
+    return error instanceof ApiError ? error.message : "Couldn't update the shot count. Try again."
   })
 
   const deleteError = createMemo<string | null>(() => {
@@ -269,6 +290,15 @@ const Home = (): JSX.Element => {
                               <li>
                                 <button
                                   type="button"
+                                  onClick={() => setShotLimitTarget(event)}
+                                >
+                                  <EditIcon class="h-4 w-4" />
+                                  Shot count
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  type="button"
                                   onClick={() => duplicateMutation.mutate(event.slug)}
                                 >
                                   <DuplicateIcon class="h-4 w-4" />
@@ -343,6 +373,18 @@ const Home = (): JSX.Element => {
           onClose={() => setRenameTarget(null)}
           onRename={(title) =>
             renameMutation.mutate({ slug: renameTarget()!.slug, title })
+          }
+        />
+      </Show>
+
+      <Show when={shotLimitTarget() !== null}>
+        <ShotLimitModal
+          busy={shotLimitMutation.isPending}
+          error={shotLimitError()}
+          initialLimit={shotLimitTarget()!.photoLimit}
+          onClose={() => setShotLimitTarget(null)}
+          onSave={(photoLimit) =>
+            shotLimitMutation.mutate({ slug: shotLimitTarget()!.slug, photoLimit })
           }
         />
       </Show>

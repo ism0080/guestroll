@@ -12,6 +12,7 @@ import {
   EventCreate,
   EventPublic,
   EventRename,
+  EventPhotoLimit,
   EventSlug,
   EventStatusUpdate,
   HostCamera,
@@ -77,6 +78,17 @@ export const RenameEvent = HttpApiEndpoint.patch(
   {
     params: SlugParams,
     payload: EventRename,
+    success: EventPublic,
+    error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
+  }
+)
+
+export const UpdateEventPhotoLimit = HttpApiEndpoint.patch(
+  "updateEventPhotoLimit",
+  "/events/:slug/photo-limit",
+  {
+    params: SlugParams,
+    payload: EventPhotoLimit,
     success: EventPublic,
     error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
   }
@@ -225,6 +237,7 @@ export class HostGroup extends HttpApiGroup.make("host")
   .add(ListEvents)
   .add(UpdateEventStatus)
   .add(RenameEvent)
+  .add(UpdateEventPhotoLimit)
   .add(DuplicateEvent)
   .add(DeleteEvent)
   .add(ListEventPhotos)
