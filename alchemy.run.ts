@@ -6,6 +6,7 @@ import * as Layer from "effect/Layer"
 import ApiWorker from "./infra/Api.ts"
 import { Bucket } from "./infra/Bucket.ts"
 import { Database } from "./infra/Db.ts"
+import { Guest } from "./infra/Guest.ts"
 
 export default Alchemy.Stack(
   "Guestroll",
@@ -21,9 +22,11 @@ export default Alchemy.Stack(
     const bucket = yield* Bucket
     const database = yield* Database
     const api = yield* ApiWorker
+    const guest = yield* Guest(api.url)
 
     return {
       apiUrl: api.url,
+      guestUrl: guest.url,
       bucketName: bucket.bucketName,
       databaseName: database.databaseName
     }

@@ -42,6 +42,21 @@ bun alchemy deploy
 The initial D1 migration is committed under `migrations/`. Review generated migrations
 before later deployments.
 
+## Guest app
+
+The guest PWA lives in `apps/guest` (SolidStart v2, client-side rendering only, Tailwind +
+daisyUI). Run it standalone against a local API:
+
+```bash
+VITE_API_BASE=http://localhost:8787 bun run --cwd apps/guest dev
+```
+
+Camera access (`getUserMedia`) requires a secure context — use `http://localhost:5174`
+on a machine with a webcam, or an HTTPS tunnel (e.g. `cloudflared tunnel --url
+http://localhost:5174`) to test on a phone. Plain-HTTP LAN URLs will not prompt for
+camera permission. In production the site is served over HTTPS (`.workers.dev`), so
+the prompt appears normally.
+
 ## API Notes
 
 - `POST /host/login` accepts the owner passcode and sets a 30-day `HttpOnly`, `Secure`,

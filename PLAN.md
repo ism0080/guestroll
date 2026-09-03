@@ -18,7 +18,11 @@ there is no public gallery.
 - **API core:** done (except ZIP download) — event create/list/status
   (`draft → live`), camera create, multipart photo upload with atomic per-camera
   limit, host-only photo list. Guests never read photos.
-- **Guest PWA:** not started.
+- **Guest PWA:** done — SolidStart v2 SPA (`apps/guest`, `ssr: false`),
+  Tailwind 4 + daisyUI 5 (retro theme), camera capture + front/back toggle +
+  torch, client-side JPEG compression (<2 MiB), film-filtered review,
+  camera-roll import, idempotent multipart upload, shot counter + done state,
+  PWA manifest/icons. Deployed via `Cloudflare.Website.Vite` in the same stack.
 - **Host dashboard:** not started.
 
 ## Goal
@@ -187,7 +191,7 @@ privilege permissions. Deploys and runtime share the same code.
   **In the stack** (`infra/Api.ts`).
 - `Cloudflare.Website.Vite` — deploy the SolidStart PWA as Cloudflare static
   assets in the same Stack (SolidStart frontend guide; Vite resource).
-  **Planned** once `apps/` exist.
+  **In the stack** (`infra/Guest.ts`, `apps/guest`).
 - Secrets: `effect/Config` + `Alchemy.Random` for stable tokens; Secrets Store
   if secrets are shared (Secrets & env guide). **Planned** for the owner
   passcode.
@@ -386,9 +390,15 @@ Status: ✅ done · ◻️ pending
 4. **API core:** ✅ (except ZIP) — event create/list/status
    (`draft → live`), camera create, multipart photo upload (`asMultipartStream`
    → R2 + D1 batch limit), host-only photo list. ◻️ ZIP download.
-5. **Guest PWA:** ◻️ camera loop (capture → compress → upload) only — no
-   gallery. daisyUI theme/components (retro/valentine fits the disposable
-   camera aesthetic).
+5. **Guest PWA:** ✅ SolidStart v2 SPA in `apps/guest` (`ssr: false` — client
+   rendering only). daisyUI 5 + Tailwind 4 (`retro` theme, `@plugin "daisyui"`).
+   Full camera loop: capture (`getUserMedia`, front/back toggle, torch),
+   client-side compression to <2 MiB JPEG, film-filtered review with
+   retake/keep, camera-roll import fallback, idempotent multipart upload
+   (client `uploadId`), shot counter, done state, and localStorage camera
+   persistence across reloads. Deployed as `Cloudflare.Website.Vite("Guest")`
+   with `VITE_API_BASE` inlined from the API Worker's URL. No gallery —
+   upload is one-way.
 6. **Host dashboard:** ◻️ passcode → event list → live photo grid → downloads.
    daisyUI dashboard components (tables, modals, toasts, forms).
 7. **Polish:** ◻️ QR + printable table cards, filters, PWA install.

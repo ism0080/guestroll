@@ -4,11 +4,12 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "api"
+    "api",
+    "apps/*"
   ],
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && bun run --cwd apps/guest typecheck",
     "lint": "oxlint",
     "test": "bun test"
   },
