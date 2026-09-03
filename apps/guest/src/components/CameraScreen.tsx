@@ -8,6 +8,7 @@ import {
   listCameras,
   setTorch,
   setZoom,
+  SOFTWARE_ZOOM,
   startStream,
   stopStream,
   triggerAutoFocus
@@ -33,10 +34,11 @@ interface FocusPoint {
 const _capture = async (
   video: HTMLVideoElement,
   flash: () => void,
-  onCapture: (bitmap: ImageBitmap) => void
+  onCapture: (bitmap: ImageBitmap) => void,
+  zoom: number
 ): Promise<void> => {
   flash()
-  const bitmap = await captureFrame(video)
+  const bitmap = await captureFrame(video, zoom)
   onCapture(bitmap)
 }
 
@@ -82,7 +84,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     }
     const range = getZoomRange(stream)
     setZoomRange(range)
-    if (range !== null) setZoomValue(range.value)
+    setZoomValue(range?.value ?? SOFTWARE_ZOOM.value)
     setFocusSupported(getFocusInfo(stream).modes.includes("single-shot"))
   }
 
@@ -103,12 +105,20 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     await refreshCapabilities()
   }
 
+  // iOS Safari zooms the page on pinch via gesture events, which ignore
+  // `touch-action`. Blocking them keeps pinch on the camera.
+  const preventPageGesture = (event: Event): void => event.preventDefault()
+
   onMount(() => {
+    viewport?.addEventListener("gesturestart", preventPageGesture)
+    viewport?.addEventListener("gesturechange", preventPageGesture)
     attach(facing(), deviceId()).catch(() => props.onUnavailable())
   })
 
   onCleanup(() => {
     attachId += 1
+    viewport?.removeEventListener("gesturestart", preventPageGesture)
+    viewport?.removeEventListener("gesturechange", preventPageGesture)
     if (focusTimeout !== undefined) clearTimeout(focusTimeout)
     if (stream !== undefined) stopStream(stream)
   })
@@ -125,6 +135,18 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   })
 
   const showLensSwitcher = createMemo(() => devicesForFacing().length > 1)
+
+  // Native track zoom where supported (Chromium); software crop-zoom
+  // fallback elsewhere (Safari exposes no usable zoom constraint).
+  const sliderRange = createMemo<ZoomRange>(() => zoomRange() ?? SOFTWARE_ZOOM)
+  const softwareZoom = createMemo(() => zoomRange() === null)
+
+  const videoTransform = createMemo(() => {
+    const parts: Array<string> = []
+    if (facing() === "user") parts.push("scaleX(-1)")
+    if (softwareZoom() && zoom() > 1.01) parts.push(`scale(${zoom()})`)
+    return parts.join(" ")
+  })
 
   const toggleFacing = (): void => {
     const next: FacingMode = facing() === "environment" ? "user" : "environment"
@@ -149,9 +171,11 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   }
 
   const applyZoom = (value: number): void => {
-    if (stream === undefined || zoomRange() === null) return
-    setZoomValue(value)
-    setZoom(stream, value).catch(() => {})
+    const range = sliderRange()
+    const clamped = Math.min(Math.max(value, range.min), range.max)
+    setZoomValue(clamped)
+    if (softwareZoom() || stream === undefined) return
+    setZoom(stream, clamped).catch(() => {})
   }
 
   const handleZoomInput = (event: InputEvent & { currentTarget: HTMLInputElement }): void => {
@@ -171,9 +195,9 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   }
 
   const handleTouchMove = (event: TouchEvent): void => {
-    if (event.touches.length !== 2 || pinchStart === null || zoomRange() === null) return
+    if (event.touches.length !== 2 || pinchStart === null) return
     event.preventDefault()
-    const range = zoomRange()!
+    const range = sliderRange()
     const distance = touchDistance(event.touches)
     if (pinchStart.distance <= 0) return
     const next = pinchStart.zoom * (distance / pinchStart.distance)
@@ -198,7 +222,11 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   }
 
   const handleCapture = (): void => {
-    if (video !== undefined) _capture(video, flash, props.onCapture).catch(() => {})
+    if (video === undefined) return
+    // Native zoom is already baked into the track frames; software zoom
+    // needs the center crop applied at capture time.
+    const captureZoom = softwareZoom() ? zoom() : 1
+    _capture(video, flash, props.onCapture, captureZoom).catch(() => {})
   }
 
   const zoomLabel = createMemo(() => `${zoom().toFixed(1)}×`)
@@ -222,7 +250,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
           autoplay
           playsinline
           muted
-          style={{ filter: filterPackCss(props.filterPack) }}
+          style={{ filter: filterPackCss(props.filterPack), transform: videoTransform() }}
           class={facing() === "user" ? "flipped" : ""}
         />
         <div class="camera-frame" />
@@ -276,21 +304,19 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
             </For>
           </div>
         </Show>
-        <Show when={zoomRange() !== null}>
-          <div class="pointer-events-auto flex w-full max-w-xs items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
-            <span class="badge badge-ghost border-0 bg-white/10 text-[11px] font-bold text-white">{zoomLabel()}</span>
-            <input
-              type="range"
-              class="zoom-slider flex-1"
-              min={zoomRange()!.min}
-              max={zoomRange()!.max}
-              step={zoomRange()!.step}
-              value={zoom()}
-              aria-label="Zoom"
-              onInput={handleZoomInput}
-            />
-          </div>
-        </Show>
+        <div class="pointer-events-auto flex w-full max-w-xs items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+          <span class="badge badge-ghost border-0 bg-white/10 text-[11px] font-bold text-white">{zoomLabel()}</span>
+          <input
+            type="range"
+            class="zoom-slider flex-1"
+            min={sliderRange().min}
+            max={sliderRange().max}
+            step={sliderRange().step}
+            value={zoom()}
+            aria-label="Zoom"
+            onInput={handleZoomInput}
+          />
+        </div>
       </div>
 
       <div class="pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-4 p-6 pb-8">

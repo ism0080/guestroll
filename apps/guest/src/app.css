@@ -24,6 +24,10 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Keep pinch/scroll gestures on the camera: the app handles pinch-zoom
+     itself, so the browser must not zoom the page. Scoped to the
+     viewfinder — the rest of the page stays pinch-zoomable. */
+  touch-action: none;
 }
 
 .camera-viewport video {

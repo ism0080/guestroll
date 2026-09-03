@@ -163,6 +163,9 @@ export const getZoomRange = (stream: MediaStream): ZoomRange | null => {
   }
 };
 
+/** Software (digital) zoom range used when the track exposes no native zoom. */
+export const SOFTWARE_ZOOM: ZoomRange = { min: 1, max: 4, step: 0.1, value: 1 }
+
 /** Applies a zoom level, clamped to the device range. Returns false when unsupported. */
 export const setZoom = async (stream: MediaStream, value: number): Promise<boolean> => {
   const range = getZoomRange(stream)
@@ -226,10 +229,35 @@ export const triggerAutoFocus = async (stream: MediaStream): Promise<boolean> =>
   return true
 };
 
-/** Captures the current video frame as an ImageBitmap. */
-export const captureFrame = (video: HTMLVideoElement): Promise<ImageBitmap> => {
-  if ("createImageBitmap" in window) {
+/**
+ * Captures the current video frame as an ImageBitmap. When `zoom` is greater
+ * than 1, the center 1/zoom region is cropped and upscaled back to full
+ * resolution — this backs the software zoom fallback on browsers without
+ * native track zoom (Safari), so the saved photo matches the preview.
+ */
+export const captureFrame = (video: HTMLVideoElement, zoom = 1): Promise<ImageBitmap> => {
+  if (!("createImageBitmap" in window)) {
+    return Promise.reject(new Error("createImageBitmap is not supported"))
+  }
+  if (!(zoom > 1.01)) {
     return createImageBitmap(video)
   }
-  return Promise.reject(new Error("createImageBitmap is not supported"))
+  const sourceWidth = video.videoWidth
+  const sourceHeight = video.videoHeight
+  if (!(sourceWidth > 0) || !(sourceHeight > 0)) {
+    return createImageBitmap(video)
+  }
+  const cropWidth = Math.floor(sourceWidth / zoom)
+  const cropHeight = Math.floor(sourceHeight / zoom)
+  const cropX = Math.floor((sourceWidth - cropWidth) / 2)
+  const cropY = Math.floor((sourceHeight - cropHeight) / 2)
+  const canvas = document.createElement("canvas")
+  canvas.width = sourceWidth
+  canvas.height = sourceHeight
+  const context = canvas.getContext("2d")
+  if (context === null) {
+    return createImageBitmap(video)
+  }
+  context.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, sourceWidth, sourceHeight)
+  return createImageBitmap(canvas)
 };
