@@ -148,7 +148,7 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const camera = yield* repo.createCamera(
           event.id,
           payload.guestId,
-          Option.fromNullishOr(payload.guestName),
+          payload.guestName,
           now
         ).pipe(Effect.catchTags({
           CameraLimitReached: () => Effect.fail(new HttpApiError.Conflict())

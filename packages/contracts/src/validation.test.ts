@@ -27,9 +27,10 @@ describe("public input validation", () => {
     }))).toBe(true)
   })
 
-  test("requires a guest id to create a camera", () => {
+  test("requires a guest id and name to create a camera", () => {
     expect(Option.isNone(Schema.decodeUnknownOption(CameraCreate)({}))).toBe(true)
-    expect(Option.isSome(Schema.decodeOption(CameraCreate)({ guestId: "guest-1" }))).toBe(true)
+    expect(Option.isNone(Schema.decodeUnknownOption(CameraCreate)({ guestId: "guest-1" }))).toBe(true)
+    expect(Option.isSome(Schema.decodeOption(CameraCreate)({ guestId: "guest-1", guestName: "Sam" }))).toBe(true)
   })
 
   test("rejects blank and overlong rename titles", () => {

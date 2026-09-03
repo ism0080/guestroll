@@ -5,8 +5,8 @@ import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { ApiError, createCamera, getEvent, randomUUID } from "~/lib/api"
 import { compressCanvas, loadGalleryBitmap, renderFrame } from "~/lib/image"
-import { deviceGuestId } from "~/lib/guestId"
-import { loadCameraSession, saveCameraSession } from "~/lib/session"
+import { deviceGuestId, deviceGuestName, saveDeviceGuestName } from "~/lib/guestId"
+import { clearCameraSession, loadCameraSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
 import { onWorkerMessage, readQueueState, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
 import type { WorkerMessage } from "~/lib/uploadQueue"
@@ -49,8 +49,9 @@ const _slugRoute = (): string => {
 const GuestRoute = (): JSX.Element => {
   const slug = _slugRoute()
 
-  const [camera, setCamera] = createSignal<CameraSession | null>(loadCameraSession(slug) ?? null)
-  const [guestName, setGuestName] = createSignal("")
+  const stored = loadCameraSession(slug)
+  const [camera, setCamera] = createSignal<CameraSession | null>(stored ?? null)
+  const [guestName, setGuestName] = createSignal(stored?.guestName ?? deviceGuestName())
   const [cameraIssue, setCameraIssue] = createSignal(false)
   const [review, setReview] = createSignal<ReviewPhoto | null>(null)
   const [fatalError, setFatalError] = createSignal<ErrorKind | null>(null)
@@ -106,10 +107,11 @@ const GuestRoute = (): JSX.Element => {
   const createCameraMutation = createMutation(() => ({
     mutationFn: async () => {
       const name = guestName().trim()
-      return createCamera(slug, deviceGuestId(), name === "" ? undefined : name)
+      return createCamera(slug, deviceGuestId(), name)
     },
     onSuccess: (result) => {
       setDoneError(null)
+      saveDeviceGuestName(guestName().trim())
       const session = makeSession(result.cameraId, result.usedCount, result.photoLimit)
       saveCameraSession(slug, session)
       setCamera(session)
@@ -253,6 +255,16 @@ const GuestRoute = (): JSX.Element => {
     }
   }
 
+  const handleStartNewRoll = (): void => {
+    if (guestName().trim() === "") {
+      clearCameraSession(slug)
+      setCamera(null)
+      setForceDone(false)
+      return
+    }
+    createCameraMutation.mutate()
+  }
+
   return (
     <>
       <Show when={eventQuery.data !== undefined}>
@@ -339,7 +351,7 @@ const GuestRoute = (): JSX.Element => {
           pending={pendingCount()}
           starting={createCameraMutation.isPending}
           error={doneError()}
-          onStartNewRoll={() => createCameraMutation.mutate()}
+          onStartNewRoll={handleStartNewRoll}
         />
       </Show>
 

@@ -250,7 +250,7 @@ export const getCamera = (id: CameraId): Effect.Effect<Option.Option<Camera>, ne
 export const createCamera = (
   eventId: EventId,
   guestId: GuestId,
-  guestName: Option.Option<string>,
+  guestName: string,
   now: Date
 ): Effect.Effect<Camera, CameraLimitReached, Sql | import("./env.ts").WorkerEnv> =>
   Effect.gen(function* () {
@@ -259,13 +259,13 @@ export const createCamera = (
     const camera = new Camera({
       id: CameraId.make(id),
       eventId,
-      guestName: Option.getOrUndefined(guestName),
+      guestName,
       usedCount: 0,
       createdAt: now
     })
     const inserted = yield* _run(client<{ readonly id: string }>`
       INSERT INTO cameras (id, eventId, guestId, guestName, usedCount, createdAt)
-      SELECT ${camera.id}, ${camera.eventId}, ${guestId}, ${Option.getOrNull(guestName)}, ${camera.usedCount}, ${camera.createdAt.toISOString()}
+      SELECT ${camera.id}, ${camera.eventId}, ${guestId}, ${guestName}, ${camera.usedCount}, ${camera.createdAt.toISOString()}
       WHERE NOT EXISTS (
         SELECT 1 FROM cameras WHERE eventId = ${eventId} AND guestId = ${guestId} AND resetAt IS NULL
       )

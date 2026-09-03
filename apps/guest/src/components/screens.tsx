@@ -31,22 +31,28 @@ export const WelcomeScreen = (props: WelcomeScreenProps): JSX.Element => (
 
           <label class="form-control w-full">
             <div class="label">
-              <span class="label-text">Who's behind the camera? <span class="text-base-content/50">(optional)</span></span>
+              <span class="label-text">Who's behind the camera?</span>
             </div>
             <input
               type="text"
               class="input input-bordered input-lg"
+              classList={{ "input-error": props.guestName().trim() === "" }}
               placeholder="Your name"
               maxlength="80"
               value={props.guestName()}
               onInput={(event) => props.setGuestName(event.currentTarget.value)}
             />
+            <div class="label">
+              <span class="label-text-alt text-base-content/50">
+                Your name keeps your roll together — we'll remember it on this device.
+              </span>
+            </div>
           </label>
 
           <button
             type="button"
             class="btn btn-primary btn-lg"
-            disabled={props.starting}
+            disabled={props.starting || props.guestName().trim() === ""}
             onClick={props.onStart}
           >
             {props.starting ? <span class="loading loading-spinner" /> : "Start snapping"}
@@ -57,7 +63,7 @@ export const WelcomeScreen = (props: WelcomeScreenProps): JSX.Element => (
           <button
             type="button"
             class="btn btn-ghost btn-lg"
-            disabled={props.starting}
+            disabled={props.starting || props.guestName().trim() === ""}
             onClick={props.onPickFromGallery}
           >
             <GalleryIcon class="h-5 w-5" />

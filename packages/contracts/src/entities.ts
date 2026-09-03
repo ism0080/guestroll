@@ -55,7 +55,7 @@ export class Camera extends Schema.Class<Camera>("Camera")({
 
 export class CameraCreate extends Schema.Class<CameraCreate>("CameraCreate")({
   guestId: GuestId,
-  guestName: Schema.optional(Schema.NonEmptyString.check(Schema.isMaxLength(80)))
+  guestName: Schema.NonEmptyString.check(Schema.isMaxLength(80))
 }) {}
 
 export class Photo extends Schema.Class<Photo>("Photo")({

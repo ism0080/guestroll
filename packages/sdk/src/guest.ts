@@ -19,10 +19,11 @@ export interface GuestClient {
   /**
    * Creates (or resumes) the guest's camera for the event. `guestId` is the
    * per-device identifier that ties the guest to a single roll per event.
-   * Optional guest name. Rejects with `ApiError` kind `conflict` when the
+   * The guest name is required and persists with the device, so a reset roll
+   * keeps the same name. Rejects with `ApiError` kind `conflict` when the
    * device already used up its roll.
    */
-  readonly createCamera: (slug: string, guestId: string, guestName?: string) => Promise<CameraCreateResult>
+  readonly createCamera: (slug: string, guestId: string, guestName: string) => Promise<CameraCreateResult>
   /**
    * Uploads one compressed photo. `uploadId` is a client UUID that makes
    * retries idempotent per camera; `takenAt` is when the shutter fired.
@@ -41,7 +42,7 @@ export const createGuestClient = (options: ApiClientOptions): Promise<GuestClien
         params: { slug: parse(EventSlug, slug, "Invalid event link") },
         payload: parse(
           CameraCreate,
-          guestName === undefined ? { guestId } : { guestId, guestName },
+          { guestId, guestName },
           "Invalid guest camera request"
         )
       })),

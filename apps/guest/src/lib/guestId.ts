@@ -1,6 +1,7 @@
 import { randomUUID } from "./api"
 
 const _key = "guestroll.guestId"
+const _nameKey = "guestroll.guestName"
 
 const _storage = (): Storage | undefined => {
   try {
@@ -23,4 +24,18 @@ export const deviceGuestId = (): string => {
   const id = randomUUID()
   storage.setItem(_key, id)
   return id
+}
+
+/** The guest name saved with this device, or an empty string on first use. */
+export const deviceGuestName = (): string => {
+  const storage = _storage()
+  if (storage === undefined) return ""
+  return storage.getItem(_nameKey) ?? ""
+}
+
+/** Persists the guest name with the device so a reset roll keeps the same name. */
+export const saveDeviceGuestName = (name: string): void => {
+  const storage = _storage()
+  if (storage === undefined) return
+  storage.setItem(_nameKey, name)
 }

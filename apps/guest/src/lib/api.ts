@@ -45,10 +45,12 @@ export const getEvent = (slug: string): Promise<EventPublic> =>
 
 /**
  * Creates (or resumes) the guest's camera for the event. `guestId` ties the
- * device to a single roll per event; the API rejects with 409 once that roll
- * is full, so a guest can't start a new set of photos.
+ * device to a single roll per event; the required `guestName` is persisted
+ * with the device so a reset roll keeps the same name. The API rejects with
+ * 409 once that roll is full, so a guest can't start a new set of photos
+ * unless the host resets the device.
  */
-export const createCamera = (slug: string, guestId: string, guestName?: string): Promise<CameraCreateResult> =>
+export const createCamera = (slug: string, guestId: string, guestName: string): Promise<CameraCreateResult> =>
   guestClient().then((client) => client.createCamera(slug, guestId, guestName))
 
 /**
