@@ -1,1 +1,1 @@
-ALTER TABLE `photos` ADD `contentDigest` text DEFAULT '' NOT NULL;
+ALTER TABLE `photos` ADD `contentDigest` text;

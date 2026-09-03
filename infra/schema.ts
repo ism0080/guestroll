@@ -41,7 +41,7 @@ export const photos = sqliteTable("photos", {
   objectKey: text("objectKey").notNull().unique(),
   thumbKey: text("thumbKey").notNull(),
   status: text("status").notNull().default("pending"),
-  contentDigest: text("contentDigest").notNull().default(""),
+  contentDigest: text("contentDigest"),
   takenAt: text("takenAt").notNull(),
   uploadedAt: text("uploadedAt").notNull()
 }, (table) => [

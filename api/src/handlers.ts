@@ -213,6 +213,7 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
           PhotoLimitReached: () => Effect.fail(new HttpApiError.Conflict()),
           UploadContentMismatch: () => Effect.fail(new HttpApiError.Conflict())
         }))
+        // Only the original pending claim writes; uploaded retries are read-only.
         if (claimed.status === "pending") {
           yield* r2.put(claimed.photo.objectKey, file.bytes, file.contentType)
           yield* repo.completePhotoUpload(claimed.photo.id)
@@ -286,7 +287,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         )
         const now = yield* _nowDate
         const transitioned = transitionEventStatus(event, payload.status, now)
-        if (Result.isFailure(transitioned)) return yield* Effect.fail(_badRequest())
+        if (Result.isFailure(transitioned)) return yield* _badRequest()
         const updated = yield* repo.updateEventStatus(event.id, ownerId, event.status, payload.status, now)
         return yield* Option.match(updated, {
           onNone: () => Effect.fail(_badRequest()),

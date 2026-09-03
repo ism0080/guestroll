@@ -5,5 +5,5 @@ export const SlugAlphabet =
 
 export const SlugLength = 16
 
-/** Brands a securely generated token as an event slug. */
+/** Brands a token created with the slug alphabet and fixed length. */
 export const makeEventSlug = (token: string): EventSlug => EventSlug.make(token)

@@ -215,12 +215,15 @@ export interface ClaimedPhoto {
   readonly photoLimit: number
   readonly usedCount: UsedCount
   readonly status: "pending" | "uploaded"
-  readonly contentDigest: string
+  readonly contentDigest: string | null
 }
 
-const PendingUploadLifetimeMs = 15 * 60 * 1000
-
-/** Atomically claims an upload id while enforcing the per-camera photo limit. */
+/**
+ * Atomically claims an upload id while enforcing the per-camera photo limit.
+ * Pending claims are intentionally retained: an interrupted R2 write can be
+ * retried safely with the same upload ID and cannot be reclaimed by a delayed
+ * request holding the original claim.
+ */
 export const claimPhotoUpload = (params: {
   readonly eventId: EventId
   readonly cameraId: CameraId
@@ -239,13 +242,6 @@ export const claimPhotoUpload = (params: {
     if (camera === undefined) return yield* new CameraNotFound({ id: params.cameraId })
     if (camera.status !== "live") return yield* new EventNotLive({ id: params.eventId, status: camera.status })
 
-    const expiredBefore = new Date(params.uploadedAt.getTime() - PendingUploadLifetimeMs).toISOString()
-    yield* _run(client`
-      DELETE FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId}
-        AND status = 'pending' AND uploadedAt < ${expiredBefore}`)
-    yield* _run(client`
-      UPDATE cameras SET usedCount = (SELECT COUNT(*) FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId})
-      WHERE id = ${params.cameraId} AND eventId = ${params.eventId}`)
     const objectKey = ObjectKey.make(`${params.eventId}-${params.cameraId}-${params.uploadId}`)
     yield* _run(client`
       INSERT OR IGNORE INTO photos (id, uploadId, eventId, cameraId, objectKey, thumbKey, contentDigest, takenAt, uploadedAt, status)
@@ -257,7 +253,9 @@ export const claimPhotoUpload = (params: {
       `)
     const claim = yield* getClaimedPhoto(params.eventId, params.cameraId, params.uploadId)
     if (Option.isNone(claim)) return yield* new PhotoLimitReached()
-    if (claim.value.contentDigest !== params.contentDigest) return yield* new UploadContentMismatch()
+    if (claim.value.contentDigest !== null && claim.value.contentDigest !== params.contentDigest) {
+      return yield* new UploadContentMismatch()
+    }
     yield* _run(client`
       UPDATE cameras SET usedCount = (SELECT COUNT(*) FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId})
       WHERE id = ${params.cameraId} AND eventId = ${params.eventId}`)
@@ -268,7 +266,7 @@ export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: 
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
     const rows = yield* _run(client<{
-      readonly id: string; readonly objectKey: string; readonly thumbKey: string; readonly takenAt: string; readonly uploadedAt: string; readonly status: "pending" | "uploaded"; readonly contentDigest: string
+      readonly id: string; readonly objectKey: string; readonly thumbKey: string; readonly takenAt: string; readonly uploadedAt: string; readonly status: "pending" | "uploaded"; readonly contentDigest: string | null
     }>`SELECT id, objectKey, thumbKey, takenAt, uploadedAt, status, contentDigest FROM photos
       WHERE eventId = ${eventId} AND cameraId = ${cameraId} AND uploadId = ${uploadId}`)
     const row = rows[0]
@@ -284,6 +282,7 @@ export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: 
        photoLimit: count.photoLimit, usedCount: UsedCount.make(count.usedCount), status: row.status, contentDigest: row.contentDigest })
   })
 
+/** Marks the durable claim uploaded. Repeating this update is intentionally harmless. */
 export const completePhotoUpload = (id: PhotoId): Effect.Effect<void, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client

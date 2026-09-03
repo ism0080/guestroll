@@ -5,10 +5,10 @@ import { EventStatus, UsedCount } from "./status.ts"
 export class EventPublic extends Schema.Class<EventPublic>("EventPublic")({
   id: EventId,
   slug: EventSlug,
-  title: Schema.NonEmptyString,
+  title: Schema.NonEmptyString.check(Schema.isMaxLength(160)),
   status: EventStatus,
   photoLimit: Schema.Int,
-  filterPack: Schema.String
+  filterPack: Schema.String.check(Schema.isMaxLength(64))
 }) {}
 
 export class CameraCreateResult extends Schema.Class<CameraCreateResult>("CameraCreateResult")({
@@ -36,7 +36,7 @@ export class HostPhoto extends Schema.Class<HostPhoto>("HostPhoto")({
 }) {}
 
 export class HostLogin extends Schema.Class<HostLogin>("HostLogin")({
-  passcode: Schema.NonEmptyString
+  passcode: Schema.NonEmptyString.check(Schema.isMaxLength(512))
 }) {}
 
 export class HostSession extends Schema.Class<HostSession>("HostSession")({

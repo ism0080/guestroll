@@ -7,7 +7,7 @@ const createdAt = new Date("2026-01-01T00:00:00.000Z")
 const event = new Event({
   id: EventId.make("event"),
   ownerId: OwnerId.make("owner"),
-  slug: EventSlug.make("slug"),
+  slug: EventSlug.make("aB3dE5fG7hI9jK1L"),
   title: "Wedding",
   filterPack: FilterPack.make("film"),
   photoLimit: 10,
