@@ -128,5 +128,34 @@ export const fetchAllEventPhotos = async (slug: string): Promise<ReadonlyArray<H
 export const photoImageUrl = (slug: string, photoId: string): string =>
   `${apiBase}/events/${encodeURIComponent(slug)}/photos/${encodeURIComponent(photoId)}`
 
+const _extensionForContentType = (contentType: string): string => {
+  if (contentType === "image/png") return "png"
+  if (contentType === "image/webp") return "webp"
+  return "jpg"
+}
+
+/**
+ * Downloads a single photo's bytes via the host-only photo endpoint
+ * (session cookie via `credentials: "include"`) and saves it with a
+ * per-photo filename.
+ */
+export const downloadSinglePhoto = async (slug: string, photoId: string): Promise<void> => {
+  const response = await fetch(photoImageUrl(slug, photoId), { credentials: "include" })
+  if (!response.ok) throw new Error(`Photo download failed with status ${response.status}`)
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  try {
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = `${slug}-${photoId}.${_extensionForContentType(blob.type)}`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  } finally {
+    // Let the browser start the download before revoking.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+}
+
 /** Guest-facing link for an event (QR target / share). */
 export const guestLink = (slug: string): string => `${guestBase}/${slug}`
