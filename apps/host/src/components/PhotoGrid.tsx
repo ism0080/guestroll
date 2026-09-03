@@ -19,7 +19,7 @@ export const PhotoGrid = (props: PhotoGridProps): JSX.Element => (
           aria-label={`Open photo ${photo.id}`}
           onClick={() => props.onSelect(photo)}
         >
-          <img src={photoImageUrl(props.slug, photo.id)} alt="" loading="lazy" />
+          <img src={photoImageUrl(props.slug, photo.id)} alt="" loading="lazy" crossorigin="use-credentials" />
         </button>
       )}
     </For>

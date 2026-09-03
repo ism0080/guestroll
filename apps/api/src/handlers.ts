@@ -381,7 +381,8 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           status: 200,
           headers: {
             "Content-Type": object.contentType,
-            "Cache-Control": "public, max-age=31536000, immutable"
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff"
           }
         })
       })

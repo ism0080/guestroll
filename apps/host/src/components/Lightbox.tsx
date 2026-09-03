@@ -24,6 +24,7 @@ export const Lightbox = (props: LightboxProps): JSX.Element => (
       <img
         src={props.photo !== null ? photoImageUrl(props.slug, props.photo.id) : ""}
         alt="Full size guest photo"
+        crossorigin="use-credentials"
         onClick={(event) => event.stopPropagation()}
       />
     </div>
