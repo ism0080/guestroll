@@ -194,6 +194,9 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
           Effect.mapError(() => _badRequest())
         )
         const uploadedAt = yield* _nowDate
+        const crypto = (yield* WorkerEnv).CRYPTO
+        const digest = yield* Effect.tryPromise(() => crypto.subtle.digest("SHA-256", file.bytes.slice().buffer)).pipe(Effect.orDie)
+        const contentDigest = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
         const r2 = yield* R2
         const claimed = yield* repo.claimPhotoUpload({
@@ -201,17 +204,24 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
           cameraId,
           uploadId,
           photoId: PhotoId.make(yield* randomId),
+          contentDigest,
           takenAt,
           uploadedAt
-        })
-        if (Option.isNone(claimed)) return yield* new HttpApiError.Conflict()
-        yield* r2.put(claimed.value.photo.objectKey, file.bytes, file.contentType)
-        yield* repo.completePhotoUpload(claimed.value.photo.id)
+        }).pipe(Effect.catchTags({
+          CameraNotFound: () => Effect.fail(_notFound()),
+          EventNotLive: () => Effect.fail(new HttpApiError.Forbidden()),
+          PhotoLimitReached: () => Effect.fail(new HttpApiError.Conflict()),
+          UploadContentMismatch: () => Effect.fail(new HttpApiError.Conflict())
+        }))
+        if (claimed.status === "pending") {
+          yield* r2.put(claimed.photo.objectKey, file.bytes, file.contentType)
+          yield* repo.completePhotoUpload(claimed.photo.id)
+        }
         return new UploadResult({
-          photoId: claimed.value.photo.id,
-          usedCount: claimed.value.usedCount,
-          photoLimit: claimed.value.photoLimit,
-          remaining: Math.max(claimed.value.photoLimit - claimed.value.usedCount, 0)
+          photoId: claimed.photo.id,
+          usedCount: claimed.usedCount,
+          photoLimit: claimed.photoLimit,
+          remaining: Math.max(claimed.photoLimit - claimed.usedCount, 0)
         })
       })
     )

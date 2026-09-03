@@ -54,5 +54,6 @@ before later deployments.
 
 D1 and R2 cannot participate in one transaction. The upload flow creates a durable,
 idempotent pending database claim before the R2 write, then exposes the photo only
-after it is marked uploaded. Retrying the same `uploadId` resumes that claim. Pending
-claims must be reconciled operationally if a Worker is terminated before R2 completes.
+after it is marked uploaded. Each claim is bound to its SHA-256 digest, so retries with
+different bytes are rejected. Pending claims expire after 15 minutes and are reclaimed
+before the next upload attempt for that camera.
