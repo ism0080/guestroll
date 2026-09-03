@@ -18,7 +18,7 @@ import {
   WelcomeScreen
 } from "~/components/screens"
 import type { ErrorKind } from "~/components/screens"
-import { CameraIcon } from "~/components/icons"
+import { CameraBody } from "~/components/camera-art"
 
 type Phase = "loading" | "error" | "welcome" | "shooting" | "done"
 
@@ -269,11 +269,11 @@ const GuestRoute = (): JSX.Element => {
       </Show>
 
       <Show when={phase() === "loading"}>
-        <div class="flex min-h-dvh flex-col items-center justify-center gap-4">
-          <span class="loading loading-spinner loading-lg text-primary" />
-          <div class="flex items-center gap-2 text-base-content/60">
-            <CameraIcon class="h-5 w-5" />
-            <span>Loading the camera roll…</span>
+        <div class="flex min-h-dvh flex-col items-center justify-center gap-5 px-6">
+          <CameraBody class="w-40 animate-pulse" />
+          <div class="film-counter flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/50">
+            <span class="loading loading-spinner loading-sm text-primary" />
+            Loading the roll…
           </div>
         </div>
       </Show>

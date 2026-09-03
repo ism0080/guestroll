@@ -14,7 +14,7 @@ import {
   triggerAutoFocus
 } from "~/lib/camera"
 import type { CameraDevice, FacingMode, ZoomRange } from "~/lib/camera"
-import { FlashIcon, FlipIcon, GalleryIcon, ShutterIcon } from "./icons"
+import { FlashIcon, FlipIcon, GalleryIcon } from "./icons"
 
 export interface CameraScreenProps {
   readonly usedCount: Accessor<number>
@@ -280,18 +280,18 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
       <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-4">
         <div class="flex flex-col items-center gap-2">
           <div
-            class="radial-progress text-primary-content bg-primary/20 text-primary"
-            style={{ "--value": props.usedCount() === 0 ? 0 : Math.round((props.usedCount() / props.photoLimit) * 100) }}
+            class="film-counter flex items-center gap-2 rounded-lg border-2 border-black/70 bg-primary px-3 py-1.5 text-primary-content shadow-lg"
             aria-label={`${props.usedCount()} of ${props.photoLimit} photos taken`}
           >
-            <span class="text-xs font-bold">
-              {props.usedCount()}/{props.photoLimit}
+            <span class="h-2 w-2 rounded-full bg-primary-content/90 shadow-[0_0_6px_var(--color-primary-content)]" />
+            <span class="text-sm font-bold leading-none tabular-nums">
+              {props.usedCount()}<span class="opacity-60">/{props.photoLimit}</span>
             </span>
           </div>
           <Show when={props.pendingCount() > 0}>
-            <div class="badge badge-ghost gap-1 border-0 bg-black/40 text-white">
+            <div class="film-counter flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
               <span class="loading loading-spinner loading-xs" />
-              Saving {props.pendingCount()}
+              Developing {props.pendingCount()}
             </div>
           </Show>
         </div>
@@ -339,7 +339,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
         </div>
       </div>
 
-      <div class="pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-4 p-6 pb-8">
+      <div class="pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-4 p-6 pb-8">
         <button
           type="button"
           class="btn btn-circle btn-ghost btn-lg text-white"
@@ -351,11 +351,11 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
 
         <button
           type="button"
-          class="btn btn-circle btn-neutral h-20 w-20 border-4 border-white/70 text-white shadow-xl"
+          class="shutter-btn grid h-20 w-20 place-items-center rounded-full border-4 border-white bg-white/10 shadow-xl backdrop-blur-sm"
           aria-label="Take a photo"
           onClick={handleCapture}
         >
-          <ShutterIcon class="h-9 w-9" />
+          <span class="h-14 w-14 rounded-full bg-primary shadow-[inset_0_-3px_6px_rgba(0,0,0,0.25)]" />
         </button>
 
         <div class="flex flex-col gap-3">
@@ -365,7 +365,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
             aria-label="Toggle flash"
             onClick={toggleTorch}
           >
-            <FlashIcon class={`h-6 w-6 ${torch() ? "text-warning" : ""}`} />
+            <FlashIcon class={`h-6 w-6 ${torch() ? "text-accent" : ""}`} />
           </button>
           <button
             type="button"

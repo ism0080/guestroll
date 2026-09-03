@@ -1,10 +1,42 @@
 @import "tailwindcss";
-@plugin "daisyui" {
-  themes: retro --default, valentine;
+@plugin "daisyui";
+
+/* Virtual disposable camera — warm paper, ink, and a flash-orange accent. */
+@plugin "daisyui/theme" {
+  name: "guestroll";
+  default: true;
+  color-scheme: light;
+
+  --color-base-100: #f6f2e9;
+  --color-base-200: #eae4d6;
+  --color-base-300: #dcd4c1;
+  --color-base-content: #201d18;
+
+  --color-primary: #e8503a;
+  --color-primary-content: #fff6f0;
+  --color-secondary: #17a398;
+  --color-secondary-content: #f2fbf9;
+  --color-accent: #f2b705;
+  --color-accent-content: #2a2100;
+  --color-neutral: #201d18;
+  --color-neutral-content: #f6f2e9;
+
+  --color-info: #2b7fff;
+  --color-success: #17a398;
+  --color-success-content: #f2fbf9;
+  --color-warning: #f2b705;
+  --color-error: #e8503a;
+
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1.5rem;
+  --border: 2px;
 }
 
 :root {
   --guestroll-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  --guestroll-ink: #201d18;
+  --guestroll-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Menlo", monospace;
 }
 
 html,
@@ -16,6 +48,37 @@ body {
 
 body {
   font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  background-color: var(--color-base-200);
+  /* Faint paper texture across the whole app */
+  background-image: radial-gradient(circle at 18% 12%, rgba(23, 163, 152, 0.06), transparent 42%),
+    radial-gradient(circle at 84% 78%, rgba(232, 80, 58, 0.06), transparent 40%);
+}
+
+/* Mechanical frame counter — the little red exposure window */
+.film-counter {
+  font-family: var(--guestroll-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* Perforated film-strip edge, used as a decorative rule */
+.film-perforations {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-base-content) 0 6px,
+    transparent 6px 14px
+  );
+  height: 6px;
+  border-radius: 9999px;
+  opacity: 0.35;
+}
+
+/* Tactile shutter press */
+.shutter-btn {
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.shutter-btn:active {
+  transform: scale(0.94);
 }
 
 /* Camera viewfinder chrome */

@@ -85,15 +85,15 @@ export const InstallPrompt = (): JSX.Element => {
     <>
       <Show when={installable()}>
         <div class="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
-          <div class="card w-full max-w-md bg-base-100 shadow-2xl">
-            <div class="card-body flex-row items-center gap-3 p-4">
+          <div class="w-full max-w-md rounded-box border-2 border-neutral bg-base-100 shadow-[5px_5px_0_0_var(--guestroll-ink)]">
+            <div class="flex flex-row items-center gap-3 p-4">
               <div class="flex-1 text-sm">
                 <p class="font-semibold">Snap like an app</p>
                 <p class="text-base-content/70">Install Guestroll for a full-screen camera.</p>
               </div>
               <button
                 type="button"
-                class="btn btn-sm btn-primary"
+                class="shutter-btn btn btn-sm btn-primary border-2 border-neutral"
                 onClick={() => void install()}
               >
                 <DownloadIcon class="h-4 w-4" />
@@ -114,8 +114,8 @@ export const InstallPrompt = (): JSX.Element => {
 
       <Show when={iosVisible()}>
         <div class="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
-          <div class="card w-full max-w-md bg-base-100 shadow-2xl">
-            <div class="card-body gap-3 p-4">
+          <div class="w-full max-w-md rounded-box border-2 border-neutral bg-base-100 shadow-[5px_5px_0_0_var(--guestroll-ink)]">
+            <div class="flex flex-col gap-3 p-4">
               <div class="flex items-start gap-3">
                 <div class="flex-1 text-sm">
                   <p class="font-semibold">Snap like an app</p>
