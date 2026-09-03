@@ -87,6 +87,14 @@ const EventDetail = (): JSX.Element => {
   const rollStatus = (roll: HostCamera): "in-progress" | "full" | "reset" =>
     roll.resetAt !== undefined ? "reset" : roll.usedCount >= roll.photoLimit ? "full" : "in-progress"
 
+  const guestNames = createMemo<Readonly<Record<string, string | undefined>>>(() => {
+    const names: Record<string, string | undefined> = {}
+    for (const roll of camerasQuery.data ?? []) {
+      if (roll.guestName !== undefined) names[roll.id] = roll.guestName
+    }
+    return names
+  })
+
   return (
     <>
       <Show when={sessionQuery.isPending}>
@@ -288,13 +296,14 @@ const EventDetail = (): JSX.Element => {
             <PhotoGrid
               slug={slug}
               photos={photosQuery.data ?? []}
+              guestNames={guestNames()}
               onSelect={(photo) => setSelected(photo)}
             />
           </Show>
         </div>
       </Show>
 
-      <Lightbox slug={slug} photo={selected()} onClose={() => setSelected(null)} />
+      <Lightbox slug={slug} photo={selected()} guestNames={guestNames()} onClose={() => setSelected(null)} />
 
       <Show when={shareOpen() && event() !== undefined}>
         <ShareModal slug={slug} title={event()!.title} onClose={() => setShareOpen(false)} />

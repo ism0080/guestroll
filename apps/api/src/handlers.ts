@@ -45,12 +45,13 @@ export const eventToPublic = (event: Event): EventPublic =>
     filterPack: event.filterPack
   })
 
-export const photoToHost = (photo: Photo): HostPhoto =>
+export const photoToHost = (photo: Photo, guestName?: string): HostPhoto =>
   new HostPhoto({
     id: photo.id,
     uploadId: photo.uploadId,
     eventId: photo.eventId,
     cameraId: photo.cameraId,
+    guestName,
     objectKey: photo.objectKey,
     thumbKey: photo.thumbKey,
     takenAt: photo.takenAt,
@@ -377,7 +378,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         const photos = rows.slice(0, pageSize)
         const last = photos.at(-1)
         return new HostPhotoPage({
-          photos: photos.map(photoToHost),
+          photos: [...photos],
           nextCursor: rows.length > pageSize && last !== undefined
             ? new PhotoCursor({ uploadedAt: last.uploadedAt, id: last.id })
             : undefined

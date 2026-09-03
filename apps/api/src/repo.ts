@@ -12,6 +12,7 @@ import {
   FilterPack,
   GuestId,
   HostCamera,
+  HostPhoto,
   ObjectKey,
   OwnerId,
   Photo,
@@ -97,12 +98,17 @@ const _toEvent = (row: EventRow): Event =>
     updatedAt: new Date(row.updatedAt)
   })
 
-const _toPhoto = (row: PhotoRow): Photo =>
-  new Photo({
+interface HostPhotoRow extends PhotoRow {
+  readonly guestName: string | null
+}
+
+const _toHostPhoto = (row: HostPhotoRow): HostPhoto =>
+  new HostPhoto({
     id: PhotoId.make(row.id),
     uploadId: UploadId.make(row.uploadId),
     eventId: EventId.make(row.eventId),
     cameraId: CameraId.make(row.cameraId),
+    guestName: row.guestName ?? undefined,
     objectKey: ObjectKey.make(row.objectKey),
     thumbKey: ObjectKey.make(row.thumbKey),
     takenAt: new Date(row.takenAt),
@@ -424,24 +430,25 @@ export const listEventPhotos = (
   ownerId: OwnerId,
   limit: number,
   cursor: Option.Option<{ readonly uploadedAt: Date; readonly id: PhotoId }>
-): Effect.Effect<ReadonlyArray<Photo>, never, Sql> =>
+): Effect.Effect<ReadonlyArray<HostPhoto>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
+    const columns = client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}, c.guestName AS guestName`)
     const rows = yield* Option.match(cursor, {
-      onNone: () => _run(client<PhotoRow>`
-        SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
-        FROM photos p JOIN events e ON e.id = p.eventId
+      onNone: () => _run(client<HostPhotoRow>`
+        SELECT ${columns}
+        FROM photos p JOIN events e ON e.id = p.eventId JOIN cameras c ON c.id = p.cameraId
         WHERE p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'
         ORDER BY p.uploadedAt DESC, p.id DESC LIMIT ${limit}`),
-      onSome: (value) => _run(client<PhotoRow>`
-        SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
-        FROM photos p JOIN events e ON e.id = p.eventId
+      onSome: (value) => _run(client<HostPhotoRow>`
+        SELECT ${columns}
+        FROM photos p JOIN events e ON e.id = p.eventId JOIN cameras c ON c.id = p.cameraId
         WHERE p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'
           AND (p.uploadedAt < ${value.uploadedAt.toISOString()}
             OR (p.uploadedAt = ${value.uploadedAt.toISOString()} AND p.id < ${value.id}))
         ORDER BY p.uploadedAt DESC, p.id DESC LIMIT ${limit}`)
     })
-    return rows.map(_toPhoto)
+    return rows.map(_toHostPhoto)
   })
 
 /** Fetches one uploaded photo owned by the caller, scoped to an event. */
@@ -449,14 +456,14 @@ export const getEventPhoto = (
   eventId: EventId,
   photoId: PhotoId,
   ownerId: OwnerId
-): Effect.Effect<Option.Option<Photo>, never, Sql> =>
+): Effect.Effect<Option.Option<HostPhoto>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    const rows = yield* _run(client<PhotoRow>`
-      SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
-      FROM photos p JOIN events e ON e.id = p.eventId
+    const rows = yield* _run(client<HostPhotoRow>`
+      SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}, c.guestName AS guestName`)}
+      FROM photos p JOIN events e ON e.id = p.eventId JOIN cameras c ON c.id = p.cameraId
       WHERE p.id = ${photoId} AND p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'`)
-    return Option.map(Option.fromNullishOr(rows[0]), _toPhoto)
+    return Option.map(Option.fromNullishOr(rows[0]), _toHostPhoto)
   })
 
 /** Every uploaded photo for an event, oldest first (ZIP build input). */
@@ -470,7 +477,19 @@ export const listUploadedPhotos = (
       FROM photos p
       WHERE p.eventId = ${eventId} AND p.status = 'uploaded'
       ORDER BY p.uploadedAt ASC, p.id ASC`)
-    return rows.map(_toPhoto)
+    return rows.map(
+      (row) =>
+        new Photo({
+          id: PhotoId.make(row.id),
+          uploadId: UploadId.make(row.uploadId),
+          eventId: EventId.make(row.eventId),
+          cameraId: CameraId.make(row.cameraId),
+          objectKey: ObjectKey.make(row.objectKey),
+          thumbKey: ObjectKey.make(row.thumbKey),
+          takenAt: new Date(row.takenAt),
+          uploadedAt: new Date(row.uploadedAt)
+        })
+    )
   })
 
 export type DownloadState = "building" | "ready" | "error"
