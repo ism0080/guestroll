@@ -4,23 +4,38 @@ import { createMutation, createQuery, useQueryClient } from "@tanstack/solid-que
 import { createMemo, createSignal, For, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import type { CreateEventInput } from "@guestroll/sdk"
+import type { EventPublic } from "@guestroll/contracts"
 import {
   ApiError,
   createEvent,
+  duplicateEvent,
   loadSession,
   login,
   logout,
+  renameEvent,
   SESSION_QUERY_KEY,
   type SessionSnapshot
 } from "~/lib/api"
-import { CameraIcon, LogoutIcon, PlusIcon } from "~/components/icons"
+import {
+  CameraIcon,
+  DuplicateIcon,
+  EditIcon,
+  LogoutIcon,
+  MoreIcon,
+  PlusIcon,
+  QrIcon
+} from "~/components/icons"
 import { LoginScreen } from "~/components/LoginScreen"
 import { NewEventModal } from "~/components/NewEventModal"
+import { RenameEventModal } from "~/components/RenameEventModal"
+import { ShareModal } from "~/components/ShareModal"
 
 const Home = (): JSX.Element => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = createSignal(false)
+  const [shareEvent, setShareEvent] = createSignal<EventPublic | null>(null)
+  const [renameTarget, setRenameTarget] = createSignal<EventPublic | null>(null)
 
   const sessionQuery = createQuery(() => ({
     queryKey: SESSION_QUERY_KEY,
@@ -53,6 +68,21 @@ const Home = (): JSX.Element => {
     }
   }))
 
+  const renameMutation = createMutation(() => ({
+    mutationFn: ({ slug, title }: { slug: string; title: string }) => renameEvent(slug, title),
+    onSuccess: () => {
+      setRenameTarget(null)
+      void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+    }
+  }))
+
+  const duplicateMutation = createMutation(() => ({
+    mutationFn: (slug: string) => duplicateEvent(slug),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+    }
+  }))
+
   const state = createMemo<"loading" | "error" | "login" | "dashboard">(() => {
     if (sessionQuery.isPending) return "loading"
     if (sessionQuery.isError) return "error"
@@ -75,6 +105,15 @@ const Home = (): JSX.Element => {
       return "Check the event details and try again."
     }
     return error instanceof ApiError ? error.message : "Couldn't create the event. Try again."
+  })
+
+  const renameError = createMemo<string | null>(() => {
+    const error = renameMutation.error
+    if (error === null) return null
+    if (error instanceof ApiError && error.kind === "bad-request") {
+      return "Check the title and try again."
+    }
+    return error instanceof ApiError ? error.message : "Couldn't rename the event. Try again."
   })
 
   return (
@@ -171,23 +210,68 @@ const Home = (): JSX.Element => {
                     <div class="card-body gap-3">
                       <div class="flex items-start justify-between gap-2">
                         <h3 class="card-title">{event.title}</h3>
-                        <Show
-                          when={event.status === "live"}
-                          fallback={<span class="badge badge-ghost">Draft</span>}
-                        >
-                          <span class="badge badge-success">Live</span>
-                        </Show>
+                        <div class="flex items-center gap-1">
+                          <Show
+                            when={event.status === "live"}
+                            fallback={<span class="badge badge-ghost">Draft</span>}
+                          >
+                            <span class="badge badge-success">Live</span>
+                          </Show>
+                          <div class="dropdown dropdown-end">
+                            <div
+                              tabindex="0"
+                              role="button"
+                              class="btn btn-ghost btn-sm px-2"
+                              aria-label={`Actions for ${event.title}`}
+                            >
+                              <MoreIcon class="h-5 w-5" />
+                            </div>
+                            <ul
+                              tabindex="0"
+                              class="dropdown-content menu rounded-box z-10 w-44 bg-base-100 p-2 shadow"
+                            >
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={() => setRenameTarget(event)}
+                                >
+                                  <EditIcon class="h-4 w-4" />
+                                  Rename
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={() => duplicateMutation.mutate(event.slug)}
+                                >
+                                  <DuplicateIcon class="h-4 w-4" />
+                                  Duplicate
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
                       </div>
                       <p class="text-sm text-base-content/60">
                         {event.photoLimit} shots per guest
                       </p>
-                      <button
-                        type="button"
-                        class="btn btn-primary"
-                        onClick={() => navigate(`/event/${event.slug}`)}
-                      >
-                        Open roll
-                      </button>
+                      <div class="flex gap-2">
+                        <button
+                          type="button"
+                          class="btn btn-primary flex-1"
+                          onClick={() => navigate(`/event/${event.slug}`)}
+                        >
+                          Open roll
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-outline"
+                          aria-label={`Share ${event.title}`}
+                          onClick={() => setShareEvent(event)}
+                        >
+                          <QrIcon class="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -203,6 +287,26 @@ const Home = (): JSX.Element => {
           error={createError()}
           onClose={() => setShowCreate(false)}
           onCreate={(input) => newEventMutation.mutate(input)}
+        />
+      </Show>
+
+      <Show when={shareEvent() !== null}>
+        <ShareModal
+          slug={shareEvent()!.slug}
+          title={shareEvent()!.title}
+          onClose={() => setShareEvent(null)}
+        />
+      </Show>
+
+      <Show when={renameTarget() !== null}>
+        <RenameEventModal
+          busy={renameMutation.isPending}
+          error={renameError()}
+          initialTitle={renameTarget()!.title}
+          onClose={() => setRenameTarget(null)}
+          onRename={(title) =>
+            renameMutation.mutate({ slug: renameTarget()!.slug, title })
+          }
         />
       </Show>
     </>

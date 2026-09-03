@@ -5,7 +5,14 @@ import {
   type HostClient,
   type PhotoPageQuery
 } from "@guestroll/sdk"
-import type { EventPublic, EventStatus, HostPhoto, HostPhotoPage, HostSession } from "@guestroll/contracts"
+import type {
+  DownloadStatus,
+  EventPublic,
+  EventStatus,
+  HostPhoto,
+  HostPhotoPage,
+  HostSession
+} from "@guestroll/contracts"
 
 const envApiBase: string | undefined = import.meta.env.VITE_API_BASE
 const envGuestBase: string | undefined = import.meta.env.VITE_GUEST_BASE
@@ -44,8 +51,26 @@ export const listEvents = (): Promise<ReadonlyArray<EventPublic>> =>
 export const updateEventStatus = (slug: string, status: EventStatus): Promise<EventPublic> =>
   hostClient().then((client) => client.updateEventStatus(slug, status))
 
+export const renameEvent = (slug: string, title: string): Promise<EventPublic> =>
+  hostClient().then((client) => client.renameEvent(slug, title))
+
+export const duplicateEvent = (slug: string): Promise<EventPublic> =>
+  hostClient().then((client) => client.duplicateEvent(slug))
+
 export const listEventPhotos = (slug: string, query?: PhotoPageQuery): Promise<HostPhotoPage> =>
   hostClient().then((client) => client.listEventPhotos(slug, query))
+
+/** Requests the "download all" ZIP build and returns the current status. */
+export const requestDownload = (slug: string): Promise<DownloadStatus> =>
+  hostClient().then((client) => client.requestDownload(slug))
+
+/** Current ZIP build status (poll target while building). */
+export const getDownloadStatus = (slug: string): Promise<DownloadStatus> =>
+  hostClient().then((client) => client.getDownloadStatus(slug))
+
+/** URL of the event's "download all" ZIP. Host-only; requires the session cookie. */
+export const downloadFileUrl = (slug: string): string =>
+  `${apiBase}/events/${encodeURIComponent(slug)}/download`
 
 /** Shared TanStack query key for the session snapshot (auth probe + events). */
 export const SESSION_QUERY_KEY = ["host", "session"] as const

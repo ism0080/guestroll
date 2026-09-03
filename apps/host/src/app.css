@@ -45,3 +45,44 @@ body {
   object-fit: contain;
   border-radius: 0.5rem;
 }
+
+/* Printable table cards (rendered via a body portal; hidden on screen) */
+.table-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6mm;
+  padding: 8mm;
+}
+
+.table-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4mm;
+  border: 1px solid #000;
+  border-radius: 4mm;
+  padding: 6mm;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.table-card-title {
+  font-size: 20pt;
+  font-weight: 700;
+  color: #000;
+}
+
+.table-card-qr {
+  width: 58mm;
+  height: 58mm;
+}
+
+.table-card-qr-placeholder {
+  background: #fff;
+}
+
+.table-card-text {
+  font-size: 11pt;
+  color: #333;
+}

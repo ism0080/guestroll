@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { Accessor, JSX } from "solid-js"
+import { filterPackCss } from "@guestroll/contracts"
 import { captureFrame, setTorch, startStream, stopStream } from "~/lib/camera"
 import type { FacingMode } from "~/lib/camera"
 import { FlashIcon, FlipIcon, GalleryIcon, ShutterIcon } from "./icons"
@@ -7,6 +8,7 @@ import { FlashIcon, FlipIcon, GalleryIcon, ShutterIcon } from "./icons"
 export interface CameraScreenProps {
   readonly usedCount: Accessor<number>
   readonly photoLimit: number
+  readonly filterPack: string
   readonly onCapture: (bitmap: ImageBitmap) => void
   readonly onPickFromGallery: () => void
   readonly onUnavailable: () => void
@@ -78,7 +80,8 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
           autoplay
           playsinline
           muted
-          class={`film ${facing() === "user" ? "flipped" : ""}`}
+          style={{ filter: filterPackCss(props.filterPack) }}
+          class={facing() === "user" ? "flipped" : ""}
         />
         <div class="camera-frame" />
         <Show when={flashing()}>

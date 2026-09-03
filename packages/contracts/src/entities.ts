@@ -40,6 +40,10 @@ export class EventCreate extends Schema.Class<EventCreate>("EventCreate")({
   photoLimit: PhotoLimit
 }) {}
 
+export class EventRename extends Schema.Class<EventRename>("EventRename")({
+  title: Schema.NonEmptyString.check(Schema.isMaxLength(160))
+}) {}
+
 export class Camera extends Schema.Class<Camera>("Camera")({
   id: CameraId,
   eventId: EventId,

@@ -1,7 +1,7 @@
 import * as Cloudflare from "alchemy/Cloudflare"
 import * as Alchemy from "alchemy"
 import type { HttpEffect } from "alchemy/Http"
-import { AppLive, ApiApp, WorkerEnv } from "@guestroll/api"
+import { AppLive, ApiApp, Background, type BackgroundDeps, WorkerEnv } from "@guestroll/api"
 import * as Effect from "effect/Effect"
 import * as Config from "effect/Config"
 import * as FileSystem from "effect/FileSystem"
@@ -52,6 +52,7 @@ export default Cloudflare.Worker(
     const env = yield* Cloudflare.WorkerEnvironment
     const db = yield* Database
     const bucket = yield* Bucket
+    const exec = yield* Cloudflare.WorkerExecutionContext
 
     yield* Cloudflare.D1.QueryDatabase(db)
     yield* Cloudflare.R2.ReadWriteBucket(bucket)
@@ -66,6 +67,19 @@ export default Cloudflare.Worker(
       CRYPTO: crypto,
       GUEST_RATE_LIMIT: env["GUEST_RATE_LIMIT"],
       LOGIN_RATE_LIMIT: env["LOGIN_RATE_LIMIT"]
+    })
+
+    // Backs the API's `Background` service with the per-event execution
+    // context: the deferred context yielded here defers its `waitUntil` to
+    // the live per-event one the bridge provides at request time.
+    const _runInBackground = (effect: Effect.Effect<never, never, never>) => exec.waitUntil(effect)
+    // SAFETY: `exec.waitUntil(effect)` runs `effect` with the caller's full
+    // per-event context (services, tracing) and registers the promise with
+    // workerd's `ctx.waitUntil`. Its declared extra `RuntimeContext` requirement
+    // is always satisfied inside a handler (the bridge provides it per event),
+    // so the assertion to the `Background` contract is sound.
+    const BackgroundLive = Layer.succeed(Background, {
+      waitUntil: _runInBackground as BackgroundDeps["waitUntil"]
     })
 
     const fetchEffect = yield* HttpRouter.toHttpEffect(
@@ -95,7 +109,10 @@ export default Cloudflare.Worker(
     return {
       fetch: Effect.provide(
         fetchEffect,
-        Layer.provide(AppLive, WorkerEnvLive)
+        Layer.provide(
+          Layer.mergeAll(AppLive, BackgroundLive),
+          WorkerEnvLive
+        )
       ) as HttpEffect
     }
   }).pipe(

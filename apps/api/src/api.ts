@@ -7,8 +7,10 @@ import * as HttpApiSchema from "effect/unstable/httpapi/HttpApiSchema"
 import {
   CameraCreate,
   CameraCreateResult,
+  DownloadStatus,
   EventCreate,
   EventPublic,
+  EventRename,
   EventSlug,
   EventStatusUpdate,
   HostLogin,
@@ -63,6 +65,27 @@ export const UpdateEventStatus = HttpApiEndpoint.patch(
     payload: EventStatusUpdate,
     success: EventPublic,
     error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
+  }
+)
+
+export const RenameEvent = HttpApiEndpoint.patch(
+  "renameEvent",
+  "/events/:slug",
+  {
+    params: SlugParams,
+    payload: EventRename,
+    success: EventPublic,
+    error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
+  }
+)
+
+export const DuplicateEvent = HttpApiEndpoint.post(
+  "duplicateEvent",
+  "/events/:slug/duplicate",
+  {
+    params: SlugParams,
+    success: EventPublic,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
   }
 )
 
@@ -121,6 +144,36 @@ export const GetHostPhoto = HttpApiEndpoint.get(
   }
 )
 
+export const RequestDownload = HttpApiEndpoint.post(
+  "requestDownload",
+  "/events/:slug/downloads",
+  {
+    params: SlugParams,
+    success: DownloadStatus,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
+export const GetDownloadStatus = HttpApiEndpoint.get(
+  "getDownloadStatus",
+  "/events/:slug/downloads",
+  {
+    params: SlugParams,
+    success: DownloadStatus,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
+export const GetDownloadFile = HttpApiEndpoint.get(
+  "getDownloadFile",
+  "/events/:slug/download",
+  {
+    params: SlugParams,
+    success: HttpApiSchema.NoContent,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
 export class GuestGroup extends HttpApiGroup.make("guest")
   .add(GetEvent)
   .add(CreateCamera)
@@ -132,7 +185,12 @@ export class HostGroup extends HttpApiGroup.make("host")
   .add(CreateEvent)
   .add(ListEvents)
   .add(UpdateEventStatus)
+  .add(RenameEvent)
+  .add(DuplicateEvent)
   .add(ListEventPhotos)
-  .add(GetHostPhoto) {}
+  .add(GetHostPhoto)
+  .add(RequestDownload)
+  .add(GetDownloadStatus)
+  .add(GetDownloadFile) {}
 
 export class EventsApi extends HttpApi.make("events").add(GuestGroup).add(HostGroup) {}

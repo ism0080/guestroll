@@ -1,5 +1,7 @@
 export * from "./api.ts"
 export * from "./app.ts"
+export * from "./background.ts"
+export * from "./download.ts"
 export * from "./host-auth.ts"
 export * from "./env.ts"
 export * from "./handlers.ts"

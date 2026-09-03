@@ -11,7 +11,9 @@ import {
   SESSION_QUERY_KEY,
   updateEventStatus
 } from "~/lib/api"
-import { CheckIcon, CopyIcon } from "~/components/icons"
+import { CheckIcon, CopyIcon, QrIcon } from "~/components/icons"
+import { DownloadButton } from "~/components/DownloadButton"
+import { ShareModal } from "~/components/ShareModal"
 import { PhotoGrid } from "~/components/PhotoGrid"
 import { Lightbox } from "~/components/Lightbox"
 
@@ -23,6 +25,7 @@ const EventDetail = (): JSX.Element => {
 
   const [selected, setSelected] = createSignal<HostPhoto | null>(null)
   const [copied, setCopied] = createSignal(false)
+  const [shareOpen, setShareOpen] = createSignal(false)
 
   onMount(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -147,6 +150,15 @@ const EventDetail = (): JSX.Element => {
               <button
                 type="button"
                 class="btn btn-outline btn-sm"
+                onClick={() => setShareOpen(true)}
+              >
+                <QrIcon class="h-4 w-4" />
+                Share & print
+              </button>
+              <DownloadButton slug={slug} />
+              <button
+                type="button"
+                class="btn btn-outline btn-sm"
                 onClick={copyLink}
               >
                 {copied() ? <CheckIcon class="h-4 w-4" /> : <CopyIcon class="h-4 w-4" />}
@@ -213,6 +225,10 @@ const EventDetail = (): JSX.Element => {
       </Show>
 
       <Lightbox slug={slug} photo={selected()} onClose={() => setSelected(null)} />
+
+      <Show when={shareOpen() && event() !== undefined}>
+        <ShareModal slug={slug} title={event()!.title} onClose={() => setShareOpen(false)} />
+      </Show>
     </>
   )
 }

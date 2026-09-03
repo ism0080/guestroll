@@ -189,6 +189,21 @@ export const updateEventStatus = (
     return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
   })
 
+export const updateEventTitle = (
+  id: EventId,
+  ownerId: OwnerId,
+  title: string,
+  now: Date
+): Effect.Effect<Option.Option<Event>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<EventRow>`
+      UPDATE events SET title = ${title}, updatedAt = ${now.toISOString()}
+      WHERE id = ${id} AND ownerId = ${ownerId}
+      RETURNING ${client.literal(eventColumns)}`)
+    return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
+  })
+
 export const getCamera = (id: CameraId): Effect.Effect<Option.Option<Camera>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
@@ -350,4 +365,106 @@ export const getEventPhoto = (
       FROM photos p JOIN events e ON e.id = p.eventId
       WHERE p.id = ${photoId} AND p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'`)
     return Option.map(Option.fromNullishOr(rows[0]), _toPhoto)
+  })
+
+/** Every uploaded photo for an event, oldest first (ZIP build input). */
+export const listUploadedPhotos = (
+  eventId: EventId
+): Effect.Effect<ReadonlyArray<Photo>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<PhotoRow>`
+      SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
+      FROM photos p
+      WHERE p.eventId = ${eventId} AND p.status = 'uploaded'
+      ORDER BY p.uploadedAt ASC, p.id ASC`)
+    return rows.map(_toPhoto)
+  })
+
+export type DownloadState = "building" | "ready" | "error"
+
+export interface DownloadRow {
+  readonly eventId: string
+  readonly status: DownloadState
+  readonly objectKey: string | null
+  readonly photoCount: number
+  readonly size: number | null
+  readonly updatedAt: string
+}
+
+export const getDownload = (
+  eventId: EventId
+): Effect.Effect<Option.Option<DownloadRow>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<DownloadRow>`
+      SELECT eventId, status, objectKey, photoCount, size, updatedAt
+      FROM downloads WHERE eventId = ${eventId}`)
+    return Option.fromNullishOr(rows[0])
+  })
+
+/** Number of uploaded photos currently in the event (ZIP staleness check). */
+export const countUploadedPhotos = (eventId: EventId): Effect.Effect<number, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<{ readonly count: number }>`
+      SELECT COUNT(*) AS count FROM photos WHERE eventId = ${eventId} AND status = 'uploaded'`)
+    return rows[0]?.count ?? 0
+  })
+
+/** Claims a fresh `building` row. True only for the request that won the race. */
+export const insertDownload = (
+  eventId: EventId,
+  now: Date
+): Effect.Effect<boolean, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<{ readonly eventId: string }>`
+      INSERT OR IGNORE INTO downloads (eventId, status, objectKey, photoCount, size, updatedAt)
+      VALUES (${eventId}, 'building', NULL, 0, NULL, ${now.toISOString()})
+      RETURNING eventId AS eventId`)
+    return rows[0] !== undefined
+  })
+
+/**
+ * Reclaims a non-building row (or a `building` row that has stalled past the
+ * threshold) for a new build. True only for the request that won the race.
+ */
+export const beginDownloadBuild = (
+  eventId: EventId,
+  stallThreshold: Date,
+  now: Date
+): Effect.Effect<boolean, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<{ readonly eventId: string }>`
+      UPDATE downloads SET status = 'building', updatedAt = ${now.toISOString()}
+      WHERE eventId = ${eventId}
+        AND (status IN ('ready', 'error')
+          OR (status = 'building' AND updatedAt < ${stallThreshold.toISOString()}))
+      RETURNING eventId AS eventId`)
+    return rows[0] !== undefined
+  })
+
+export const completeDownload = (
+  eventId: EventId,
+  objectKey: string,
+  size: number,
+  photoCount: number,
+  now: Date
+): Effect.Effect<void, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    yield* _run(client`
+      UPDATE downloads SET status = 'ready', objectKey = ${objectKey}, size = ${size},
+        photoCount = ${photoCount}, updatedAt = ${now.toISOString()}
+      WHERE eventId = ${eventId}`)
+  })
+
+export const failDownload = (eventId: EventId, now: Date): Effect.Effect<void, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    yield* _run(client`
+      UPDATE downloads SET status = 'error', updatedAt = ${now.toISOString()}
+      WHERE eventId = ${eventId}`)
   })

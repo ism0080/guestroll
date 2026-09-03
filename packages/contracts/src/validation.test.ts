@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 import { EventSlug } from "./brands.ts"
-import { CameraCreate, EventCreate } from "./entities.ts"
+import { CameraCreate, EventCreate, EventRename } from "./entities.ts"
 
 describe("public input validation", () => {
   test("accepts only fixed-length alphanumeric event slugs", () => {
@@ -24,5 +24,11 @@ describe("public input validation", () => {
       filterPack: "film",
       photoLimit: 101
     }))).toBe(true)
+  })
+
+  test("rejects blank and overlong rename titles", () => {
+    expect(Option.isSome(Schema.decodeOption(EventRename)({ title: "Our wedding" }))).toBe(true)
+    expect(Option.isNone(Schema.decodeOption(EventRename)({ title: "" }))).toBe(true)
+    expect(Option.isNone(Schema.decodeOption(EventRename)({ title: "x".repeat(161) }))).toBe(true)
   })
 })

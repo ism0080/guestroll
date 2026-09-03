@@ -22,7 +22,7 @@ export default function App() {
         root={(props) => (
           <MetaProvider>
             <Title>Guestroll</Title>
-            <div class="min-h-dvh bg-base-200">
+            <div class="min-h-dvh bg-base-200 print:hidden">
               <Suspense>{props.children}</Suspense>
             </div>
           </MetaProvider>

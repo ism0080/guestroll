@@ -52,3 +52,11 @@ export const CloseIcon = (props: IconProps): JSX.Element => (
     <path d="M6 6l12 12M18 6 6 18" />
   </svg>
 )
+
+export const DownloadIcon = (props: IconProps): JSX.Element => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class={props.class}>
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M5 21h14" />
+  </svg>
+)

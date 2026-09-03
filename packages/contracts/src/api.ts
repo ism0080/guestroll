@@ -53,6 +53,16 @@ export class HostPhotoPage extends Schema.Class<HostPhotoPage>("HostPhotoPage")(
   nextCursor: Schema.optional(PhotoCursor)
 }) {}
 
+export const DownloadState = Schema.Literals(["none", "building", "ready", "error"])
+export type DownloadState = typeof DownloadState.Type
+
+export class DownloadStatus extends Schema.Class<DownloadStatus>("DownloadStatus")({
+  status: DownloadState,
+  photoCount: Schema.Int,
+  size: Schema.optional(Schema.Int),
+  updatedAt: Schema.optional(Schema.Date)
+}) {}
+
 export class RateLimitExceeded extends Schema.Error<RateLimitExceeded>("RateLimitExceeded")({
   _tag: Schema.tag("RateLimitExceeded")
 }, {

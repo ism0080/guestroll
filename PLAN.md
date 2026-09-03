@@ -15,9 +15,10 @@ there is no public gallery.
   `bun run lint` pass.
 - **Domain + contracts:** done — `Owner`, `Event`, `Camera`, `Slug` models and
   DTOs. No moderation/approval; photos have no status.
-- **API core:** done (except ZIP download) — event create/list/status
+- **API core:** done — event create/list/status
   (`draft → live`), camera create, multipart photo upload with atomic per-camera
-  limit, host-only photo list. Guests never read photos.
+  limit, host-only photo list, and host-only **ZIP download** (build + cache).
+  Guests never read photos.
 - **Guest PWA:** done — SolidStart v2 SPA (`apps/guest`, `ssr: false`),
   Tailwind 4 + daisyUI 5 (retro theme), camera capture + front/back toggle +
   torch, client-side JPEG compression (<2 MiB), film-filtered review,
@@ -101,7 +102,10 @@ guestroll/
 - **Photo** — id, client upload id, eventId, cameraId, objectKey, thumbKey,
   taken at, uploaded at. The client upload id makes retries idempotent per
   camera; server upload time drives stable host pagination.
-- **Download** — for "download all as ZIP" via R2 (build + cache).
+- **Download** — for "download all as ZIP" via R2 (build + cache). One row per
+  event; `status` (`building | ready | error`), `objectKey` of the built ZIP,
+  `photoCount` at build time (staleness check), `size`. Added to
+  `infra/schema.ts` + migrations.
 
 All events/cameras/photos are scoped by `ownerId`; every query enforces the
 owner. Guest-facing routes only access events via their unguessable `slug`.
@@ -123,11 +127,18 @@ transactions; use native `batch`).
 
 ### Host (dashboard)
 - Login once (passcode/QR) as owner
-- Event list: create, rename, duplicate (reuse for a second event)
-- Create event: title, cover, filter pack, per-guest photo limit
+- Event list: create, rename, duplicate (reuse for a second event) ✅ — a
+  kebab menu on each card renames (`PATCH /events/:slug`) or duplicates
+  (`POST /events/:slug/duplicate`) an event; a duplicate is a fresh draft
+  reusing the title, filter pack, and photo limit
+- Create event: title, cover, filter pack, per-guest photo limit ✅ — the
+  create modal selects from the shared `FilterPackOptions` (film / natural /
+  black & white / vivid); the guest camera applies the event's pack to the
+  live viewfinder and bakes it into every saved frame
 - Per event: live photo grid (all photos as they upload), flip event
   `draft → live`, downloads
-- Share per event: link + QR + printable table-card template
+- Share per event: link + QR + printable table-card template ✅ (QR generated
+  client-side with `qrcode` SVG; "Print table cards" prints a 2×2 A4 grid)
 
 ### Non-functional (critical)
 - Client-side compression before upload (flaky venue wifi)
@@ -146,7 +157,7 @@ transactions; use native `batch`).
 | Uploads        | `HttpApiSchema.asMultipartStream` → stream bytes to R2        |
 | Client bindings| generated `HttpApiClient` (multipart as `FormData`)           |
 | Infra          | Alchemy v2 (`Cloudflare.R2.Bucket`, `D1`, `Worker`, `Website.Vite`) |
-| QR / ZIP       | qrcode lib, fflate/jszip                                      |
+| QR / ZIP       | qrcode lib (client-side SVG, `apps/host`), fflate (API ZIP)     |
 
 ## Effect v4 constraints (from research)
 
@@ -395,9 +406,15 @@ Status: ✅ done · ◻️ pending
 3. **Domain + contracts:** ✅ Effect models (`Owner`, `Event`, `Camera`,
    `Slug`) + `effect/Schema` DTOs in `packages/contracts`. No moderation
    state machine — photos are status-less.
-4. **API core:** ✅ (except ZIP) — event create/list/status
+4. **API core:** ✅ — event create/list/status
    (`draft → live`), camera create, multipart photo upload (`asMultipartStream`
-   → R2 + D1 batch limit), host-only photo list. ◻️ ZIP download.
+   → R2 + D1 batch limit), host-only photo list, and **ZIP download**: a
+   `Background` service (`apps/api/src/background.ts`) backed by the Worker's
+   `WorkerExecutionContext.waitUntil` (provided in `infra/Api.ts`) runs a
+   background build that streams every photo through fflate's streaming ZIP
+   writer into R2 (bounded memory), tracked by a per-event `downloads` row.
+   `POST /events/:slug/downloads` triggers-or-reports, `GET .../downloads`
+   polls, `GET /events/:slug/download` streams the cached ZIP.
 5. **Guest PWA:** ✅ SolidStart v2 SPA in `apps/guest` (`ssr: false` — client
    rendering only). daisyUI 5 + Tailwind 4 (`retro` theme, `@plugin "daisyui"`).
    Full camera loop: capture (`getUserMedia`, front/back toggle, torch),
@@ -410,10 +427,24 @@ Status: ✅ done · ◻️ pending
 6. **Host dashboard:** ✅ SolidStart v2 SPA in `apps/host` (`ssr: false`),
    daisyUI 5 (`cupcake`). Passcode login → event list (create, `draft → live`)
    → live photo grid (20s poll + window-focus refresh) with lightbox, and guest
-   share-link copy. Host-only photo endpoint serves R2 bytes. Deployed as
-   `Cloudflare.Website.Vite("Host")`. ◻️ rename/duplicate, downloads (ZIP),
-   QR + printable table cards.
-7. **Polish:** ◻️ QR + printable table cards, filters, PWA install.
+   share-link copy. Host-only photo endpoint serves R2 bytes. ✅ downloads
+   (ZIP): a "Download all" button requests the build, polls `GET /downloads`,
+   and fetches the ZIP with the session cookie. ✅ share per event: a "Share &
+   print" modal (event list + detail) generates the guest-link QR client-side
+   (`qrcode` SVG, canvas-free) and prints a 2×2 A4 grid of table cards
+   (title + QR + "Scan to add your photos"); the print area is portaled to
+   `body` and the app shell is `print:hidden`. ✅ rename/duplicate: a kebab
+   menu on each event card renames (`PATCH /events/:slug`) or duplicates
+   (`POST /events/:slug/duplicate`) — duplicates are fresh drafts reusing the
+   title, filter pack, and photo limit. Deployed as
+   `Cloudflare.Website.Vite("Host")`.
+7. **Polish:** ✅ filter packs — `FilterPackOptions`/`filterPackCss` in
+   `packages/contracts` (film / natural / black & white / vivid) selectable in
+   the create-event modal and applied by the guest camera (viewfinder inline
+   filter + canvas-baked on capture; review no longer double-filters). ✅ PWA
+   install prompt — a dismissible banner on the guest app surfaces Chromium's
+   `beforeinstallprompt` (Android/desktop) to install the full-screen camera
+   app; hidden on iOS (no programmatic prompt).
 
 ## Known risks / open items
 
@@ -423,9 +454,12 @@ Status: ✅ done · ◻️ pending
   Cloudflare Image Resizing availability on the account/plan (free-tier R2 may
   not include it; fallback: generate a downscaled thumb client-side or in the
   Worker).
-- ZIP download not yet built. Verify the bridge (`HttpRouter.toHttpEffect` /
-  `waitUntil`) for the ZIP build so large download jobs can outlive the
-  request.
+- ✅ ZIP download built. The bridge is verified: a `Background` service
+  (`apps/api/src/background.ts`) is backed by the Worker's
+  `WorkerExecutionContext.waitUntil` (provided in `infra/Api.ts`), so the
+  build outlives the triggering request. The build streams photos through
+  fflate's streaming ZIP writer straight into R2 (bounded memory), and the
+  ZIP is served back from R2. First live check happens on the first deploy.
 - Owner auth uses a configured passcode exchanged for a signed, expiring,
   HTTP-only session cookie (`SameSite=None; Secure`) — the host dashboard
   sends it via `credentials: "include"`, and the photo `<img>` tags carry it

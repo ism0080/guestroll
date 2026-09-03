@@ -1,5 +1,6 @@
-import { createSignal, Show } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import type { JSX } from "solid-js"
+import { FilterPackOptions } from "@guestroll/contracts"
 import type { CreateEventInput } from "@guestroll/sdk"
 import { CloseIcon } from "./icons"
 
@@ -11,10 +12,12 @@ export interface NewEventModalProps {
 }
 
 const DEFAULT_LIMIT = 24
+const DEFAULT_FILTER_PACK = "film"
 
 export const NewEventModal = (props: NewEventModalProps): JSX.Element => {
   const [title, setTitle] = createSignal("")
   const [photoLimit, setPhotoLimit] = createSignal(DEFAULT_LIMIT)
+  const [filterPack, setFilterPack] = createSignal(DEFAULT_FILTER_PACK)
 
   const canSubmit = (): boolean => props.busy || title().trim() === ""
 
@@ -22,7 +25,7 @@ export const NewEventModal = (props: NewEventModalProps): JSX.Element => {
     event.preventDefault()
     props.onCreate({
       title: title().trim(),
-      filterPack: "film",
+      filterPack: filterPack(),
       photoLimit: photoLimit()
     })
   }
@@ -75,10 +78,16 @@ export const NewEventModal = (props: NewEventModalProps): JSX.Element => {
 
               <label class="form-control w-full">
                 <div class="label">
-                  <span class="label-text">Filter pack</span>
+                  <span class="label-text">Filter</span>
                 </div>
-                <select class="select select-bordered" name="filterPack">
-                  <option value="film">Film</option>
+                <select
+                  class="select select-bordered"
+                  value={filterPack()}
+                  onInput={(event) => setFilterPack(event.currentTarget.value)}
+                >
+                  <For each={FilterPackOptions}>
+                    {(option) => <option value={option.id}>{option.label}</option>}
+                  </For>
                 </select>
               </label>
             </div>

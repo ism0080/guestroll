@@ -54,3 +54,17 @@ export const photos = sqliteTable("photos", {
     foreignColumns: [cameras.id, cameras.eventId]
   }).onDelete("cascade")
 ])
+
+export const downloads = sqliteTable("downloads", {
+  eventId: text("eventId")
+    .primaryKey()
+    .references(() => events.id)
+    .notNull(),
+  status: text("status").notNull(),
+  objectKey: text("objectKey"),
+  photoCount: integer("photoCount").notNull().default(0),
+  size: integer("size"),
+  updatedAt: text("updatedAt").notNull()
+}, (table) => [
+  check("downloads_status_valid", sql`${table.status} IN ('building', 'ready', 'error')`)
+])

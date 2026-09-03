@@ -17,6 +17,7 @@
     "@effect/sql-d1": "4.0.0-rc.112",
     "@guestroll/contracts": "0.0.0",
     "@guestroll/domain": "0.0.0",
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.0-rc.112",
+    "fflate": "^0.8.3"
   }
 }

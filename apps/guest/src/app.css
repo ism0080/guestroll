@@ -37,11 +37,6 @@ body {
   transform: scaleX(1);
 }
 
-/* Film-filtered live preview: must mirror the canvas filter applied on capture */
-.camera-viewport video.film {
-  filter: saturate(0.82) contrast(1.08) sepia(0.14) brightness(1.02);
-}
-
 /* Vignette + sprocket-hole border, drawn over the viewfinder */
 .camera-frame::after {
   content: "";
@@ -118,7 +113,4 @@ body {
   background: #111;
 }
 
-/* Kept-photo review keeps the same film treatment */
-.review-photo {
-  filter: saturate(0.82) contrast(1.08) sepia(0.14) brightness(1.02);
-}
+/* Kept-photo review carries the filter baked in by the canvas on capture */

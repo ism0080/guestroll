@@ -8,6 +8,7 @@ import { compressCanvas, loadGalleryBitmap, renderFrame } from "~/lib/image"
 import { clearCameraSession, loadCameraSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
 import { CameraScreen } from "~/components/CameraScreen"
+import { InstallPrompt } from "~/components/InstallPrompt"
 import {
   DoneScreen,
   ErrorScreen,
@@ -74,6 +75,8 @@ const GuestRoute = (): JSX.Element => {
       return error.kind === "network" || error.kind === "unknown"
     }
   }))
+
+  const filterPack = createMemo<string>(() => eventQuery.data?.filterPack ?? "film")
 
   const phase = createMemo<Phase>(() => {
     if (fatalError() !== null) return "error"
@@ -177,7 +180,7 @@ const GuestRoute = (): JSX.Element => {
   const handleGalleryFile = async (file: File): Promise<void> => {
     try {
       const bitmap = await loadGalleryBitmap(file)
-      const canvas = renderFrame(bitmap)
+      const canvas = renderFrame(bitmap, filterPack())
       setReview({ canvas, url: canvas.toDataURL("image/jpeg", 0.85), takenAt: new Date() })
       bitmap.close()
     } catch {
@@ -186,7 +189,7 @@ const GuestRoute = (): JSX.Element => {
   }
 
   const handleCapture = (bitmap: ImageBitmap): void => {
-    const canvas = renderFrame(bitmap)
+    const canvas = renderFrame(bitmap, filterPack())
     setReview({ canvas, url: canvas.toDataURL("image/jpeg", 0.85), takenAt: new Date() })
     bitmap.close()
   }
@@ -260,6 +263,7 @@ const GuestRoute = (): JSX.Element => {
           <CameraScreen
             usedCount={() => camera()?.usedCount ?? 0}
             photoLimit={camera()!.photoLimit}
+            filterPack={filterPack()}
             onCapture={handleCapture}
             onPickFromGallery={handleGallery}
             onUnavailable={() => setCameraIssue(true)}
@@ -319,6 +323,8 @@ const GuestRoute = (): JSX.Element => {
           changeEvent.currentTarget.value = ""
         }}
       />
+
+      <InstallPrompt />
     </>
   )
 }

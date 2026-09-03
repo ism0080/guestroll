@@ -1,6 +1,14 @@
 import { Effect } from "effect"
-import { EventCreate, EventSlug, EventStatusUpdate, HostLogin, PhotoId } from "@guestroll/contracts"
+import {
+  EventCreate,
+  EventRename,
+  EventSlug,
+  EventStatusUpdate,
+  HostLogin,
+  PhotoId
+} from "@guestroll/contracts"
 import type {
+  DownloadStatus,
   EventPublic,
   EventStatus,
   HostPhotoPage,
@@ -28,7 +36,11 @@ export interface HostClient {
   readonly createEvent: (input: CreateEventInput) => Promise<EventPublic>
   readonly listEvents: () => Promise<ReadonlyArray<EventPublic>>
   readonly updateEventStatus: (slug: string, status: EventStatus) => Promise<EventPublic>
+  readonly renameEvent: (slug: string, title: string) => Promise<EventPublic>
+  readonly duplicateEvent: (slug: string) => Promise<EventPublic>
   readonly listEventPhotos: (slug: string, query?: PhotoPageQuery) => Promise<HostPhotoPage>
+  readonly requestDownload: (slug: string) => Promise<DownloadStatus>
+  readonly getDownloadStatus: (slug: string) => Promise<DownloadStatus>
 }
 
 export const createHostClient = (options: ApiClientOptions): Promise<HostClient> =>
@@ -50,6 +62,15 @@ export const createHostClient = (options: ApiClientOptions): Promise<HostClient>
         params: { slug: parse(EventSlug, slug, "Invalid event link") },
         payload: parse(EventStatusUpdate, { status }, "Invalid event status")
       })),
+    renameEvent: (slug, title) =>
+      runApi(client.host.renameEvent({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") },
+        payload: parse(EventRename, { title }, "Invalid event title")
+      })),
+    duplicateEvent: (slug) =>
+      runApi(client.host.duplicateEvent({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") }
+      })),
     listEventPhotos: (slug, query) =>
       runApi(client.host.listEventPhotos({
         params: { slug: parse(EventSlug, slug, "Invalid event link") },
@@ -60,5 +81,13 @@ export const createHostClient = (options: ApiClientOptions): Promise<HostClient>
             ? undefined
             : parse(PhotoId, query.cursorId, "Invalid photo cursor")
         }
+      })),
+    requestDownload: (slug) =>
+      runApi(client.host.requestDownload({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") }
+      })),
+    getDownloadStatus: (slug) =>
+      runApi(client.host.getDownloadStatus({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") }
       }))
   }))

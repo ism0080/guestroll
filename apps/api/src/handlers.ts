@@ -10,7 +10,9 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
 import {
   CameraCreateResult,
   CameraId,
+  DownloadStatus,
   Event,
+  EventCreate,
   EventPublic,
   EventSlug,
   HostPhotoPage,
@@ -25,6 +27,8 @@ import {
 } from "@guestroll/contracts"
 import { transitionEventStatus } from "@guestroll/domain"
 import { EventsApi } from "./api.ts"
+import { Background } from "./background.ts"
+import { DownloadBuildTimeoutMs, runDownloadBuild } from "./download.ts"
 import { WorkerEnv } from "./env.ts"
 import { HostAuth, HostSessionCookie } from "./host-auth.ts"
 import * as repo from "./repo.ts"
@@ -90,6 +94,14 @@ const _requireEvent = (
   slug: EventSlug
 ): Effect.Effect<Event, HttpApiError.NotFound, D1Client.D1Client> =>
   repo.getEventBySlug(slug).pipe(Effect.flatMap(Effect.fromOption(() => _notFound())))
+
+const _downloadStatus = (row: repo.DownloadRow, photoCount: number): DownloadStatus =>
+  new DownloadStatus({
+    status: row.status,
+    photoCount,
+    size: row.size ?? undefined,
+    updatedAt: new Date(row.updatedAt)
+  })
 
 const _nowDate: Effect.Effect<Date, never, Clock.Clock> = Effect.map(
   Clock.currentTimeMillis,
@@ -295,6 +307,39 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         })
       })
     )
+    .handle("renameEvent", ({ params, payload, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const now = yield* _nowDate
+        const updated = yield* repo.updateEventTitle(event.id, ownerId, payload.title, now)
+        return yield* Option.match(updated, {
+          onNone: () => Effect.fail(_badRequest()),
+          onSome: (renamed) => Effect.succeed(eventToPublic(renamed))
+        })
+      })
+    )
+    .handle("duplicateEvent", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const now = yield* _nowDate
+        const created = yield* repo.createEvent(
+          new EventCreate({
+            title: event.title,
+            filterPack: event.filterPack,
+            photoLimit: event.photoLimit
+          }),
+          ownerId,
+          now
+        )
+        return eventToPublic(created)
+      })
+    )
     .handle("listEventPhotos", ({ params, query, request }) =>
       Effect.gen(function* () {
         const ownerId = yield* _requireHost(request)
@@ -337,6 +382,84 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           headers: {
             "Content-Type": object.contentType,
             "Cache-Control": "public, max-age=31536000, immutable"
+          }
+        })
+      })
+    )
+    .handle("requestDownload", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const now = yield* _nowDate
+        const photoCount = yield* repo.countUploadedPhotos(event.id)
+        const existing = yield* repo.getDownload(event.id)
+        const isFreshReady = Option.isSome(existing) &&
+          existing.value.status === "ready" &&
+          existing.value.objectKey !== null &&
+          existing.value.photoCount === photoCount
+        if (isFreshReady) return _downloadStatus(existing.value, photoCount)
+
+        const stallThreshold = new Date(now.getTime() - DownloadBuildTimeoutMs)
+        const started = yield* Option.match(existing, {
+          onNone: () => repo.insertDownload(event.id, now),
+          onSome: () => repo.beginDownloadBuild(event.id, stallThreshold, now)
+        })
+        if (started) {
+          const background = yield* Background
+          yield* background.waitUntil(
+            runDownloadBuild(event.id).pipe(
+              Effect.sandbox,
+              Effect.catch((cause) => Effect.logError("ZIP download build failed unexpectedly", cause))
+            )
+          )
+        }
+        const row = yield* repo.getDownload(event.id)
+        return Option.match(row, {
+          onNone: () => new DownloadStatus({ status: "error", photoCount }),
+          onSome: (value) => _downloadStatus(value, photoCount)
+        })
+      })
+    )
+    .handle("getDownloadStatus", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const photoCount = yield* repo.countUploadedPhotos(event.id)
+        const row = yield* repo.getDownload(event.id)
+        return Option.match(row, {
+          onNone: () => new DownloadStatus({ status: "none", photoCount }),
+          onSome: (value) => _downloadStatus(value, photoCount)
+        })
+      })
+    )
+    .handle("getDownloadFile", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const photoCount = yield* repo.countUploadedPhotos(event.id)
+        const row = yield* repo.getDownload(event.id).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        if (row.status !== "ready" || row.objectKey === null || row.photoCount !== photoCount) {
+          return yield* _notFound()
+        }
+        const r2 = yield* R2
+        const head = yield* r2.head(row.objectKey)
+        if (Option.isNone(head)) return yield* _notFound()
+        const stream = yield* r2.getStream(row.objectKey).pipe(Effect.mapError(() => _notFound()))
+        return HttpServerResponse.raw(stream, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": `attachment; filename="${event.slug}-photos.zip"`,
+            "Content-Length": String(head.value.size),
+            "Cache-Control": "no-store"
           }
         })
       })
