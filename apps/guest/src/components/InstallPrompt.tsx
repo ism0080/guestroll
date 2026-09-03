@@ -1,19 +1,52 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
-import { CloseIcon, DownloadIcon } from "./icons"
+import { CloseIcon, DownloadIcon, ShareIcon } from "./icons"
+
+const IOS_DISMISS_KEY = "guestroll.install.ios-dismissed"
+
+const _isIOS = (): boolean =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+const _isStandalone = (): boolean => {
+  if ("standalone" in navigator) return navigator.standalone === true
+  return window.matchMedia("(display-mode: standalone)").matches
+}
+
+const _iosDismissed = (): boolean => {
+  try {
+    return window.localStorage.getItem(IOS_DISMISS_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+const _dismissIos = (): void => {
+  try {
+    window.localStorage.setItem(IOS_DISMISS_KEY, "1")
+  } catch {
+    // Storage unavailable — the banner just stays for this session.
+  }
+}
 
 /**
- * Offers to install the guest PWA as a home-screen app. Chromium fires
- * `beforeinstallprompt` once install criteria are met (Android Chrome, desktop
- * Chrome); iOS Safari has no programmatic prompt, so the banner simply stays
- * hidden there.
+ * Offers to install the guest PWA as a home-screen app.
+ *
+ * - Chromium (Android/desktop Chrome) fires `beforeinstallprompt` once install
+ *   criteria are met; the banner then shows a one-tap install button.
+ * - iOS Safari has no programmatic prompt, so it shows step-by-step "Add to
+ *   Home Screen" guidance instead, hidden once the app is running standalone.
  */
 export const InstallPrompt = (): JSX.Element => {
   const [installable, setInstallable] = createSignal(false)
-  const [dismissed, setDismissed] = createSignal(false)
+  const [iosVisible, setIosVisible] = createSignal(false)
   let deferred: BeforeInstallPromptEvent | undefined
 
   onMount(() => {
+    if (_isIOS() && !_isStandalone() && !_iosDismissed()) {
+      setIosVisible(true)
+    }
+
     const onPrompt = (event: Event): void => {
       event.preventDefault()
       // SAFETY: `beforeinstallprompt` events are Chromium's
@@ -43,34 +76,75 @@ export const InstallPrompt = (): JSX.Element => {
     setInstallable(false)
   }
 
+  const dismissIos = (): void => {
+    setIosVisible(false)
+    _dismissIos()
+  }
+
   return (
-    <Show when={installable() && !dismissed()}>
-      <div class="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
-        <div class="card w-full max-w-md bg-base-100 shadow-2xl">
-          <div class="card-body flex-row items-center gap-3 p-4">
-            <div class="flex-1 text-sm">
-              <p class="font-semibold">Snap like an app</p>
-              <p class="text-base-content/70">Install Guestroll for a full-screen camera.</p>
+    <>
+      <Show when={installable()}>
+        <div class="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+          <div class="card w-full max-w-md bg-base-100 shadow-2xl">
+            <div class="card-body flex-row items-center gap-3 p-4">
+              <div class="flex-1 text-sm">
+                <p class="font-semibold">Snap like an app</p>
+                <p class="text-base-content/70">Install Guestroll for a full-screen camera.</p>
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                onClick={() => void install()}
+              >
+                <DownloadIcon class="h-4 w-4" />
+                Install
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                aria-label="Dismiss install prompt"
+                onClick={() => setInstallable(false)}
+              >
+                <CloseIcon class="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              class="btn btn-sm btn-primary"
-              onClick={() => void install()}
-            >
-              <DownloadIcon class="h-4 w-4" />
-              Install
-            </button>
-            <button
-              type="button"
-              class="btn btn-sm btn-ghost"
-              aria-label="Dismiss install prompt"
-              onClick={() => setDismissed(true)}
-            >
-              <CloseIcon class="h-4 w-4" />
-            </button>
           </div>
         </div>
-      </div>
-    </Show>
+      </Show>
+
+      <Show when={iosVisible()}>
+        <div class="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+          <div class="card w-full max-w-md bg-base-100 shadow-2xl">
+            <div class="card-body gap-3 p-4">
+              <div class="flex items-start gap-3">
+                <div class="flex-1 text-sm">
+                  <p class="font-semibold">Snap like an app</p>
+                  <p class="mt-1 flex items-center gap-1 text-base-content/70">
+                    Tap
+                    <ShareIcon class="h-4 w-4 text-primary" />
+                    Share, then “Add to Home Screen” for a full-screen camera.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-ghost"
+                  aria-label="Dismiss install prompt"
+                  onClick={dismissIos}
+                >
+                  <CloseIcon class="h-4 w-4" />
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="badge badge-outline badge-sm gap-1">
+                  <span class="loading loading-spinner loading-xs" />
+                  Photos keep saving in the background
+                </span>
+                <span class="badge badge-outline badge-sm">Works offline</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
+    </>
   )
 }

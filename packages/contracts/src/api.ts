@@ -31,8 +31,8 @@ export class HostPhoto extends Schema.Class<HostPhoto>("HostPhoto")({
   cameraId: CameraId,
   objectKey: ObjectKey,
   thumbKey: ObjectKey,
-  takenAt: Schema.Date,
-  uploadedAt: Schema.Date
+  takenAt: Schema.DateFromString,
+  uploadedAt: Schema.DateFromString
 }) {}
 
 export class HostLogin extends Schema.Class<HostLogin>("HostLogin")({
@@ -44,7 +44,7 @@ export class HostSession extends Schema.Class<HostSession>("HostSession")({
 }) {}
 
 export class PhotoCursor extends Schema.Class<PhotoCursor>("PhotoCursor")({
-  uploadedAt: Schema.Date,
+  uploadedAt: Schema.DateFromString,
   id: PhotoId
 }) {}
 
@@ -60,7 +60,7 @@ export class DownloadStatus extends Schema.Class<DownloadStatus>("DownloadStatus
   status: DownloadState,
   photoCount: Schema.Int,
   size: Schema.optional(Schema.Int),
-  updatedAt: Schema.optional(Schema.Date)
+  updatedAt: Schema.optional(Schema.DateFromString)
 }) {}
 
 export class RateLimitExceeded extends Schema.Error<RateLimitExceeded>("RateLimitExceeded")({

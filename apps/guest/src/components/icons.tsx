@@ -60,3 +60,11 @@ export const DownloadIcon = (props: IconProps): JSX.Element => (
     <path d="M5 21h14" />
   </svg>
 )
+
+export const ShareIcon = (props: IconProps): JSX.Element => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class={props.class}>
+    <path d="M12 3v11" />
+    <path d="m7 8 5-5 5 5" />
+    <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+  </svg>
+)

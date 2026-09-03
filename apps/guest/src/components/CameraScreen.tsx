@@ -9,6 +9,7 @@ export interface CameraScreenProps {
   readonly usedCount: Accessor<number>
   readonly photoLimit: number
   readonly filterPack: string
+  readonly pendingCount: Accessor<number>
   readonly onCapture: (bitmap: ImageBitmap) => void
   readonly onPickFromGallery: () => void
   readonly onUnavailable: () => void
@@ -90,18 +91,26 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
       </div>
 
       <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-4">
-        <div
-          class="radial-progress text-primary-content bg-primary/20 text-primary"
-          style={{ "--value": props.usedCount() === 0 ? 0 : Math.round((props.usedCount() / props.photoLimit) * 100) }}
-          aria-label={`${props.usedCount()} of ${props.photoLimit} photos taken`}
-        >
-          <span class="text-xs font-bold">
-            {props.usedCount()}/{props.photoLimit}
-          </span>
+        <div class="flex flex-col items-center gap-2">
+          <div
+            class="radial-progress text-primary-content bg-primary/20 text-primary"
+            style={{ "--value": props.usedCount() === 0 ? 0 : Math.round((props.usedCount() / props.photoLimit) * 100) }}
+            aria-label={`${props.usedCount()} of ${props.photoLimit} photos taken`}
+          >
+            <span class="text-xs font-bold">
+              {props.usedCount()}/{props.photoLimit}
+            </span>
+          </div>
+          <Show when={props.pendingCount() > 0}>
+            <div class="badge badge-ghost gap-1 border-0 bg-black/40 text-white">
+              <span class="loading loading-spinner loading-xs" />
+              Saving {props.pendingCount()}
+            </div>
+          </Show>
         </div>
       </div>
 
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-4 p-6 pb-8">
+      <div class="pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-4 p-6 pb-8">
         <button
           type="button"
           class="btn btn-circle btn-ghost btn-lg text-white"

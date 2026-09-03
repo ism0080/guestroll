@@ -199,7 +199,7 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const cameraId = yield* Schema.decodeEffect(CameraId)(cameraIdStr).pipe(
           Effect.mapError(() => _badRequest())
         )
-        const takenAt = yield* Schema.decodeUnknownEffect(Schema.Date)(takenAtStr).pipe(
+        const takenAt = yield* Schema.decodeUnknownEffect(Schema.DateFromString)(takenAtStr).pipe(
           Effect.mapError(() => _badRequest())
         )
         const uploadId = yield* Schema.decodeEffect(UploadId)(uploadIdStr).pipe(
@@ -338,6 +338,23 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           now
         )
         return eventToPublic(created)
+      })
+    )
+    .handle("deleteEvent", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const cleanup = yield* repo.deleteEvent(event.id, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const r2 = yield* R2
+        const keys = new Set([...cleanup.photoKeys, ...(cleanup.downloadKey === null ? [] : [cleanup.downloadKey])])
+        for (const key of keys) {
+          yield* r2.delete(key).pipe(Effect.ignore)
+        }
+        return HttpServerResponse.empty({ status: 204 })
       })
     )
     .handle("listEventPhotos", ({ params, query, request }) =>

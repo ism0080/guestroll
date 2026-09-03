@@ -244,7 +244,7 @@ export const createCamera = (
     })
     yield* _run(client`
       INSERT INTO cameras (id, eventId, guestName, usedCount, createdAt)
-      VALUES (${camera.id}, ${camera.eventId}, ${camera.guestName}, ${camera.usedCount}, ${camera.createdAt.toISOString()})`)
+      VALUES (${camera.id}, ${camera.eventId}, ${Option.getOrNull(guestName)}, ${camera.usedCount}, ${camera.createdAt.toISOString()})`)
     return camera
   })
 
@@ -467,4 +467,42 @@ export const failDownload = (eventId: EventId, now: Date): Effect.Effect<void, n
     yield* _run(client`
       UPDATE downloads SET status = 'error', updatedAt = ${now.toISOString()}
       WHERE eventId = ${eventId}`)
+  })
+
+export interface EventCleanupKeys {
+  readonly photoKeys: ReadonlyArray<string>
+  readonly downloadKey: string | null
+}
+
+/**
+ * Permanently deletes an owned event and all of its data: photos, cameras,
+ * and the download row. Returns the R2 object keys that were associated with
+ * the event so the caller can remove the photo bytes and any ZIP archive.
+ * D1 and R2 cannot share a transaction, so the database is the source of
+ * truth: rows are removed first and object deletion is best-effort after.
+ */
+export const deleteEvent = (
+  eventId: EventId,
+  ownerId: OwnerId
+): Effect.Effect<Option.Option<EventCleanupKeys>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const owned = yield* _run(client<{ readonly id: string }>`
+      SELECT id FROM events WHERE id = ${eventId} AND ownerId = ${ownerId}`)
+    if (owned[0] === undefined) return Option.none()
+
+    const photos = yield* _run(client<{ readonly objectKey: string; readonly thumbKey: string }>`
+      SELECT objectKey, thumbKey FROM photos WHERE eventId = ${eventId}`)
+    const download = yield* _run(client<{ readonly objectKey: string | null }>`
+      SELECT objectKey FROM downloads WHERE eventId = ${eventId}`)
+
+    yield* _run(client`DELETE FROM photos WHERE eventId = ${eventId}`)
+    yield* _run(client`DELETE FROM cameras WHERE eventId = ${eventId}`)
+    yield* _run(client`DELETE FROM downloads WHERE eventId = ${eventId}`)
+    yield* _run(client`DELETE FROM events WHERE id = ${eventId} AND ownerId = ${ownerId}`)
+
+    return Option.some({
+      photoKeys: photos.flatMap((row) => [row.objectKey, row.thumbKey]),
+      downloadKey: download[0]?.objectKey ?? null
+    })
   })

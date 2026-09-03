@@ -14,3 +14,20 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ readonly outcome: "accepted" | "dismissed"; readonly platform: string }>
   prompt(): Promise<void>
 }
+
+/**
+ * Background Sync API. Not in the DOM lib yet; `sync` is absent on browsers
+ * without support, so it's optional and guarded at runtime.
+ */
+interface SyncManager {
+  register(tag: string): Promise<void>
+}
+
+interface ServiceWorkerRegistration {
+  readonly sync?: SyncManager
+}
+
+/** iOS Safari only: `true` when running from the home-screen icon. */
+interface Navigator {
+  readonly standalone?: boolean
+}

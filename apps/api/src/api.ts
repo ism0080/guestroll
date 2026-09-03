@@ -25,7 +25,7 @@ const SlugParams = Schema.Struct({ slug: EventSlug })
 const PhotoParams = Schema.Struct({ slug: EventSlug, photoId: PhotoId })
 const PhotoPageQuery = Schema.Struct({
   limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
-  cursorUploadedAt: Schema.optional(Schema.Date),
+  cursorUploadedAt: Schema.optional(Schema.DateFromString),
   cursorId: Schema.optional(PhotoId)
 })
 
@@ -85,6 +85,16 @@ export const DuplicateEvent = HttpApiEndpoint.post(
   {
     params: SlugParams,
     success: EventPublic,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
+export const DeleteEvent = HttpApiEndpoint.delete(
+  "deleteEvent",
+  "/events/:slug",
+  {
+    params: SlugParams,
+    success: HttpApiSchema.NoContent,
     error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
   }
 )
@@ -187,6 +197,7 @@ export class HostGroup extends HttpApiGroup.make("host")
   .add(UpdateEventStatus)
   .add(RenameEvent)
   .add(DuplicateEvent)
+  .add(DeleteEvent)
   .add(ListEventPhotos)
   .add(GetHostPhoto)
   .add(RequestDownload)

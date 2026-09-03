@@ -38,6 +38,7 @@ export interface HostClient {
   readonly updateEventStatus: (slug: string, status: EventStatus) => Promise<EventPublic>
   readonly renameEvent: (slug: string, title: string) => Promise<EventPublic>
   readonly duplicateEvent: (slug: string) => Promise<EventPublic>
+  readonly deleteEvent: (slug: string) => Promise<void>
   readonly listEventPhotos: (slug: string, query?: PhotoPageQuery) => Promise<HostPhotoPage>
   readonly requestDownload: (slug: string) => Promise<DownloadStatus>
   readonly getDownloadStatus: (slug: string) => Promise<DownloadStatus>
@@ -69,6 +70,10 @@ export const createHostClient = (options: ApiClientOptions): Promise<HostClient>
       })),
     duplicateEvent: (slug) =>
       runApi(client.host.duplicateEvent({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") }
+      })),
+    deleteEvent: (slug) =>
+      runApi(client.host.deleteEvent({
         params: { slug: parse(EventSlug, slug, "Invalid event link") }
       })),
     listEventPhotos: (slug, query) =>

@@ -1,12 +1,14 @@
 import { Title } from "@solidjs/meta"
 import { useParams } from "@solidjs/router"
 import { createMutation, createQuery } from "@tanstack/solid-query"
-import { createMemo, createSignal, Show } from "solid-js"
+import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
-import { ApiError, createCamera, getEvent, randomUUID, uploadPhoto } from "~/lib/api"
+import { ApiError, createCamera, getEvent, randomUUID } from "~/lib/api"
 import { compressCanvas, loadGalleryBitmap, renderFrame } from "~/lib/image"
 import { clearCameraSession, loadCameraSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
+import { onWorkerMessage, readQueueState, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
+import type { WorkerMessage } from "~/lib/uploadQueue"
 import { CameraScreen } from "~/components/CameraScreen"
 import { InstallPrompt } from "~/components/InstallPrompt"
 import {
@@ -24,12 +26,6 @@ interface ReviewPhoto {
   readonly canvas: HTMLCanvasElement
   readonly url: string
   readonly takenAt: Date
-}
-
-interface UploadVariable {
-  readonly canvas: HTMLCanvasElement
-  readonly takenAt: Date
-  readonly uploadId: string
 }
 
 const _kindFor = (error: ApiError): ErrorKind => {
@@ -125,46 +121,53 @@ const GuestRoute = (): JSX.Element => {
     }
   }))
 
-  const uploadMutation = createMutation(() => ({
-    mutationFn: async ({ canvas, takenAt, uploadId }: UploadVariable) => {
-      const loaded = eventQuery.data
-      const session = camera()
-      if (loaded === undefined || session === null) throw new ApiError("network", "Not ready")
-      const blob = await compressCanvas(canvas)
-      return uploadPhoto({
-        slug: loaded.slug,
-        cameraId: session.cameraId,
-        takenAt,
-        uploadId,
-        file: blob
-      })
-    },
-    retry: (failureCount, error) => {
-      if (failureCount >= 3) return false
-      return error instanceof ApiError && error.kind === "network"
-    },
-    onSuccess: (result) => {
-      const loaded = eventQuery.data
-      const session = camera()
-      if (loaded === undefined || session === null) return
-      const updated = makeSession(session.cameraId, result.usedCount, result.photoLimit)
-      saveCameraSession(loaded.slug, updated)
-      setCamera(updated)
-      setReview(null)
-    },
-    onError: (error) => {
-      if (error instanceof ApiError && error.kind === "conflict") {
+  const [encoding, setEncoding] = createSignal(false)
+  const [uploadError, setUploadError] = createSignal<string | null>(null)
+  const [pendingCount, setPendingCount] = createSignal(0)
+  let disposeWorkerMessages: (() => void) | undefined
+
+  const applyUploadResult = (usedCount: number, photoLimit: number): void => {
+    const loaded = eventQuery.data
+    const session = camera()
+    if (loaded === undefined || session === null) return
+    const updated = makeSession(session.cameraId, usedCount, photoLimit)
+    saveCameraSession(loaded.slug, updated)
+    setCamera(updated)
+  }
+
+  const refreshPending = async (): Promise<void> => {
+    const state = await readQueueState()
+    setPendingCount(state.pending)
+  }
+
+  const handleWorkerMessage = (message: WorkerMessage): void => {
+    switch (message.type) {
+      case "uploaded":
+        applyUploadResult(message.usedCount, message.photoLimit)
+        void refreshPending()
+        break
+      case "conflict":
         setReview(null)
         setForceDone(true)
-      }
+        void refreshPending()
+        break
+      case "failed":
+        void refreshPending()
+        break
+      case "pending":
+        setPendingCount(message.pending)
+        break
     }
-  }))
+  }
 
-  const uploadError = createMemo<string | null>(() => {
-    const error = uploadMutation.error
-    if (error === null) return null
-    if (error instanceof ApiError && error.kind === "conflict") return null
-    return error instanceof ApiError ? error.message : "Couldn't send that photo. Try again."
+  onMount(() => {
+    void wakeWorker()
+    void refreshPending()
+    disposeWorkerMessages = onWorkerMessage(handleWorkerMessage)
+  })
+
+  onCleanup(() => {
+    disposeWorkerMessages?.()
   })
 
   const handleStart = (): void => {
@@ -181,6 +184,7 @@ const GuestRoute = (): JSX.Element => {
     try {
       const bitmap = await loadGalleryBitmap(file)
       const canvas = renderFrame(bitmap, filterPack())
+      setUploadError(null)
       setReview({ canvas, url: canvas.toDataURL("image/jpeg", 0.85), takenAt: new Date() })
       bitmap.close()
     } catch {
@@ -190,23 +194,53 @@ const GuestRoute = (): JSX.Element => {
 
   const handleCapture = (bitmap: ImageBitmap): void => {
     const canvas = renderFrame(bitmap, filterPack())
+    setUploadError(null)
     setReview({ canvas, url: canvas.toDataURL("image/jpeg", 0.85), takenAt: new Date() })
     bitmap.close()
   }
 
   const handleRetake = (): void => {
     setReview(null)
-    uploadMutation.reset()
+    setUploadError(null)
   }
 
-  const handleKeep = (): void => {
+  const handleKeep = async (): Promise<void> => {
     const current = review()
-    if (current === null) return
-    uploadMutation.mutate({
-      canvas: current.canvas,
-      takenAt: current.takenAt,
-      uploadId: randomUUID()
-    })
+    const loaded = eventQuery.data
+    const session = camera()
+    if (current === null || loaded === undefined || session === null) return
+    setEncoding(true)
+    try {
+      const blob = await compressCanvas(current.canvas)
+      const outcome = await submitPhoto({
+        slug: loaded.slug,
+        cameraId: session.cameraId,
+        takenAt: current.takenAt,
+        uploadId: randomUUID(),
+        file: blob
+      })
+      setReview(null)
+      setUploadError(null)
+      if (outcome.kind === "queued") {
+        void refreshPending()
+      } else {
+        applyUploadResult(outcome.result.usedCount, outcome.result.photoLimit)
+      }
+    } catch (error) {
+      setUploadError(
+        error instanceof ApiError
+          ? error.kind === "conflict"
+            ? null
+            : error.message
+          : "Couldn't save that photo. Try again."
+      )
+      if (error instanceof ApiError && error.kind === "conflict") {
+        setReview(null)
+        setForceDone(true)
+      }
+    } finally {
+      setEncoding(false)
+    }
   }
 
   const handleRetry = (): void => {
@@ -220,10 +254,10 @@ const GuestRoute = (): JSX.Element => {
     clearCameraSession(slug)
     setCamera(null)
     setReview(null)
+    setUploadError(null)
     setGuestName("")
     setForceDone(false)
     setFatalError(null)
-    uploadMutation.reset()
   }
 
   return (
@@ -264,6 +298,7 @@ const GuestRoute = (): JSX.Element => {
             usedCount={() => camera()?.usedCount ?? 0}
             photoLimit={camera()!.photoLimit}
             filterPack={filterPack()}
+            pendingCount={pendingCount}
             onCapture={handleCapture}
             onPickFromGallery={handleGallery}
             onUnavailable={() => setCameraIssue(true)}
@@ -295,9 +330,11 @@ const GuestRoute = (): JSX.Element => {
       <Show when={review() !== null}>
         <ReviewOverlay
           url={review()!.url}
-          busy={uploadMutation.isPending}
+          busy={encoding()}
           error={uploadError()}
-          onKeep={handleKeep}
+          onKeep={() => {
+            handleKeep().catch(() => {})
+          }}
           onRetake={handleRetake}
         />
       </Show>
@@ -306,6 +343,7 @@ const GuestRoute = (): JSX.Element => {
         <DoneScreen
           title={eventQuery.data?.title ?? "the couple"}
           count={doneCount()}
+          pending={pendingCount()}
           onRetake={handleRetakeCamera}
         />
       </Show>

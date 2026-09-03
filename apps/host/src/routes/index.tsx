@@ -8,6 +8,7 @@ import type { EventPublic } from "@guestroll/contracts"
 import {
   ApiError,
   createEvent,
+  deleteEvent,
   duplicateEvent,
   loadSession,
   login,
@@ -23,7 +24,8 @@ import {
   LogoutIcon,
   MoreIcon,
   PlusIcon,
-  QrIcon
+  QrIcon,
+  TrashIcon
 } from "~/components/icons"
 import { LoginScreen } from "~/components/LoginScreen"
 import { NewEventModal } from "~/components/NewEventModal"
@@ -83,6 +85,13 @@ const Home = (): JSX.Element => {
     }
   }))
 
+  const deleteMutation = createMutation(() => ({
+    mutationFn: (slug: string) => deleteEvent(slug),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })
+    }
+  }))
+
   const state = createMemo<"loading" | "error" | "login" | "dashboard">(() => {
     if (sessionQuery.isPending) return "loading"
     if (sessionQuery.isError) return "error"
@@ -115,6 +124,18 @@ const Home = (): JSX.Element => {
     }
     return error instanceof ApiError ? error.message : "Couldn't rename the event. Try again."
   })
+
+  const deleteError = createMemo<string | null>(() => {
+    const error = deleteMutation.error
+    if (error === null) return null
+    return error instanceof ApiError ? error.message : "Couldn't delete the event. Try again."
+  })
+
+  const confirmDelete = (event: EventPublic): void => {
+    if (window.confirm(`Delete "${event.title}" and all its photos? This can't be undone.`)) {
+      deleteMutation.mutate(event.slug)
+    }
+  }
 
   return (
     <>
@@ -191,6 +212,12 @@ const Home = (): JSX.Element => {
             </button>
           </div>
 
+          <Show when={deleteError() !== null}>
+            <div class="alert alert-error mb-4">
+              <span>{deleteError()}</span>
+            </div>
+          </Show>
+
           <Show
             when={sessionQuery.data!.events.length > 0}
             fallback={
@@ -246,6 +273,16 @@ const Home = (): JSX.Element => {
                                 >
                                   <DuplicateIcon class="h-4 w-4" />
                                   Duplicate
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  type="button"
+                                  class="text-error"
+                                  onClick={() => confirmDelete(event)}
+                                >
+                                  <TrashIcon class="h-4 w-4" />
+                                  Delete
                                 </button>
                               </li>
                             </ul>

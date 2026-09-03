@@ -57,6 +57,9 @@ export const renameEvent = (slug: string, title: string): Promise<EventPublic> =
 export const duplicateEvent = (slug: string): Promise<EventPublic> =>
   hostClient().then((client) => client.duplicateEvent(slug))
 
+export const deleteEvent = (slug: string): Promise<void> =>
+  hostClient().then((client) => client.deleteEvent(slug))
+
 export const listEventPhotos = (slug: string, query?: PhotoPageQuery): Promise<HostPhotoPage> =>
   hostClient().then((client) => client.listEventPhotos(slug, query))
 

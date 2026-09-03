@@ -76,6 +76,7 @@ export const WelcomeScreen = (props: WelcomeScreenProps): JSX.Element => (
 export interface DoneScreenProps {
   readonly title: string
   readonly count: number
+  readonly pending?: number
   readonly onRetake: () => void
 }
 
@@ -95,6 +96,12 @@ export const DoneScreen = (props: DoneScreenProps): JSX.Element => (
             Your <span class="font-semibold">{props.count}</span> photos are safely tucked
             away for <span class="font-semibold">{props.title}</span>.
           </p>
+          <Show when={props.pending !== undefined && props.pending > 0}>
+            <p class="text-sm text-base-content/70">
+              {props.pending} more {props.pending === 1 ? "photo is" : "photos are"} still
+              saving in the background — no need to stay on this page.
+            </p>
+          </Show>
           <p class="text-base-content/70">
             Thanks for being part of the day — the couple will see every frame you captured.
           </p>
@@ -171,7 +178,7 @@ export interface ReviewOverlayProps {
 }
 
 export const ReviewOverlay = (props: ReviewOverlayProps): JSX.Element => (
-  <div class="fixed inset-0 z-40 flex flex-col bg-black">
+  <div class="fixed inset-0 z-[60] flex flex-col bg-black">
     <div class="relative flex min-h-0 flex-1 items-center justify-center p-4">
       <div class="film-grain relative max-h-full overflow-hidden rounded-box shadow-2xl">
         <img src={props.url} alt="Your capture" class="review-photo max-h-[70dvh] w-auto" />
@@ -197,7 +204,7 @@ export const ReviewOverlay = (props: ReviewOverlayProps): JSX.Element => (
         }
       >
         <p class="mb-3 text-center text-sm text-white/70">
-          {props.busy ? "Sending to the couple's roll…" : "Keep this one or snap it again."}
+          {props.busy ? "Getting this one ready…" : "Keep this one or snap it again."}
         </p>
       </Show>
 
