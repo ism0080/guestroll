@@ -40,12 +40,14 @@ export const photos = sqliteTable("photos", {
   cameraId: text("cameraId").notNull(),
   objectKey: text("objectKey").notNull().unique(),
   thumbKey: text("thumbKey").notNull(),
+  status: text("status").notNull().default("pending"),
   takenAt: text("takenAt").notNull(),
   uploadedAt: text("uploadedAt").notNull()
 }, (table) => [
   unique("photos_camera_upload_unique").on(table.cameraId, table.uploadId),
   index("photos_event_id_uploaded_at_id_idx").on(table.eventId, table.uploadedAt, table.id),
   index("photos_camera_id_idx").on(table.cameraId),
+  check("photos_status_valid", sql`${table.status} IN ('pending', 'uploaded')`),
   foreignKey({
     columns: [table.cameraId, table.eventId],
     foreignColumns: [cameras.id, cameras.eventId]

@@ -36,9 +36,8 @@ export default Cloudflare.Worker(
     env: {
       HOST_PASSCODE: Config.redacted("HOST_PASSCODE"),
       HOST_SESSION_SECRET: Alchemy.makeRandom("HostSessionSecret"),
-      ALLOWED_ORIGIN: Config.string("ALLOWED_ORIGIN").pipe(
-        Config.withDefault("http://localhost:5173")
-      ),
+      HOST_ALLOWED_ORIGIN: Config.string("HOST_ALLOWED_ORIGIN"),
+      GUEST_ALLOWED_ORIGIN: Config.string("GUEST_ALLOWED_ORIGIN"),
       GUEST_RATE_LIMIT: Cloudflare.RateLimit("GUEST_RATE_LIMIT", {
         namespaceId: 1001,
         simple: { limit: 60, period: 60 }
@@ -62,7 +61,8 @@ export default Cloudflare.Worker(
       BUCKET: env["BUCKET"],
       HOST_PASSCODE: env["HOST_PASSCODE"],
       HOST_SESSION_SECRET: env["HOST_SESSION_SECRET"],
-      ALLOWED_ORIGIN: env["ALLOWED_ORIGIN"],
+      HOST_ALLOWED_ORIGIN: env["HOST_ALLOWED_ORIGIN"],
+      GUEST_ALLOWED_ORIGIN: env["GUEST_ALLOWED_ORIGIN"],
       CRYPTO: crypto,
       GUEST_RATE_LIMIT: env["GUEST_RATE_LIMIT"],
       LOGIN_RATE_LIMIT: env["LOGIN_RATE_LIMIT"]
@@ -78,7 +78,7 @@ export default Cloudflare.Worker(
         ]),
         Layer.provide(
           HttpRouter.cors({
-            allowedOrigins: [env["ALLOWED_ORIGIN"]],
+             allowedOrigins: [env["HOST_ALLOWED_ORIGIN"], env["GUEST_ALLOWED_ORIGIN"]],
             allowedMethods: ["GET", "POST", "PATCH", "OPTIONS"],
             allowedHeaders: ["Content-Type"],
             credentials: true

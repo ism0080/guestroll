@@ -15,13 +15,15 @@ Set deployment configuration in the environment:
 
 ```bash
 HOST_PASSCODE=replace-with-a-long-random-passcode
-ALLOWED_ORIGIN=http://localhost:5173
+HOST_ALLOWED_ORIGIN=https://host.example.com
+GUEST_ALLOWED_ORIGIN=https://guest.example.com
 ```
 
 `HOST_PASSCODE` is stored as a Cloudflare secret binding. Alchemy generates and stores
-a separate stable session-signing secret. `ALLOWED_ORIGIN` must be the exact host app
-origin in production. Host requests must use `credentials: "include"`; the secure
-cross-site cookie requires HTTPS outside local test clients.
+a separate stable session-signing secret. Both origin variables are required and must
+be exact frontend origins; the host origin controls credentialed host API requests.
+Host requests must use `credentials: "include"`; the secure cross-site cookie uses
+`SameSite=None` and requires HTTPS outside local test clients.
 
 ## Checks
 
@@ -43,14 +45,14 @@ before later deployments.
 ## API Notes
 
 - `POST /host/login` accepts the owner passcode and sets a 30-day `HttpOnly`, `Secure`,
-  `SameSite=Strict` cookie.
+  `SameSite=None` cookie. All host mutations, including logout, require the exact host
+  origin and a valid session.
 - Guest camera creation and photo uploads are rate limited by Cloudflare.
 - Uploads accept one JPEG, PNG, or WebP file up to 2 MiB plus `cameraId`, `takenAt`,
   and a client-generated UUID `uploadId`. Retrying the same `uploadId` is idempotent.
 - Host photo listing uses cursor pagination with a maximum page size of 100.
 
-D1 and R2 cannot participate in one transaction. The upload flow reserves quota before
-storage and compensates D1 and R2 after observable failures or interruption. A Worker
-isolate terminated between services can still leave a stale reservation or object; add
-a durable upload-state table and scheduled reconciler if that operational guarantee is
-needed.
+D1 and R2 cannot participate in one transaction. The upload flow creates a durable,
+idempotent pending database claim before the R2 write, then exposes the photo only
+after it is marked uploaded. Retrying the same `uploadId` resumes that claim. Pending
+claims must be reconciled operationally if a Worker is terminated before R2 completes.

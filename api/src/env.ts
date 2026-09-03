@@ -8,7 +8,8 @@ export interface WorkerEnvBindings {
   readonly BUCKET: R2Bucket
   readonly HOST_PASSCODE: string
   readonly HOST_SESSION_SECRET: string
-  readonly ALLOWED_ORIGIN: string
+  readonly HOST_ALLOWED_ORIGIN: string
+  readonly GUEST_ALLOWED_ORIGIN: string
   readonly CRYPTO: GuestrollCrypto
   readonly GUEST_RATE_LIMIT: RateLimit
   readonly LOGIN_RATE_LIMIT: RateLimit

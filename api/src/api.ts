@@ -33,7 +33,8 @@ export const LoginHost = HttpApiEndpoint.post("loginHost", "/host/login", {
 })
 
 export const LogoutHost = HttpApiEndpoint.post("logoutHost", "/host/logout", {
-  success: HostSession
+  success: HostSession,
+  error: HttpApiError.Unauthorized
 })
 
 export const GetEvent = HttpApiEndpoint.get("getEvent", "/events/:slug", {
@@ -71,7 +72,7 @@ export const CreateCamera = HttpApiEndpoint.post(
     params: SlugParams,
     payload: CameraCreate,
     success: CameraCreateResult,
-    error: [HttpApiError.NotFound, HttpApiError.Forbidden, RateLimitExceeded]
+    error: [HttpApiError.NotFound, HttpApiError.Forbidden, HttpApiError.Unauthorized, RateLimitExceeded]
   }
 )
 
@@ -90,6 +91,7 @@ export const UploadPhoto = HttpApiEndpoint.post(
     error: [
       HttpApiError.NotFound,
       HttpApiError.Forbidden,
+      HttpApiError.Unauthorized,
       HttpApiError.BadRequest,
       HttpApiError.Conflict,
       RateLimitExceeded

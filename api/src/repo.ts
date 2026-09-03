@@ -17,7 +17,6 @@ import {
   UploadId,
   UsedCount
 } from "@guestroll/contracts"
-import { PhotoLimitExceeded } from "@guestroll/domain"
 import { randomEventSlug, randomId } from "./ids.ts"
 
 export class EventNotFound extends Schema.TaggedError<EventNotFound>()(
@@ -144,17 +143,16 @@ export const createEvent = (
 export const updateEventStatus = (
   id: EventId,
   ownerId: OwnerId,
+  expectedStatus: EventStatus,
   status: EventStatus,
   now: Date
 ): Effect.Effect<Option.Option<Event>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    yield* _run(client`
-      UPDATE events SET status = ${status}, updatedAt = ${now.toISOString()}
-      WHERE id = ${id} AND ownerId = ${ownerId}`)
     const rows = yield* _run(client<EventRow>`
-      SELECT ${client.literal(eventColumns)} FROM events
-      WHERE id = ${id} AND ownerId = ${ownerId}`)
+      UPDATE events SET status = ${status}, updatedAt = ${now.toISOString()}
+      WHERE id = ${id} AND ownerId = ${ownerId} AND status = ${expectedStatus}
+      RETURNING ${client.literal(eventColumns)}`)
     return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
   })
 
@@ -202,163 +200,59 @@ export const createCamera = (
     return camera
   })
 
-export interface PhotoReservation {
-  readonly _tag: "PhotoReservation"
-  readonly photoId: PhotoId
-  readonly eventId: EventId
-  readonly cameraId: CameraId
-  readonly photoLimit: number
-  readonly usedCount: UsedCount
-}
-
-export interface ExistingPhoto {
-  readonly _tag: "ExistingPhoto"
+export interface ClaimedPhoto {
   readonly photo: Photo
   readonly photoLimit: number
   readonly usedCount: UsedCount
 }
 
-/** Atomically validates an event camera and reserves one photo quota slot. */
-export const reservePhotoSlot = (params: {
+/** Atomically claims an upload id while enforcing the per-camera photo limit. */
+export const claimPhotoUpload = (params: {
   readonly eventId: EventId
   readonly cameraId: CameraId
   readonly uploadId: UploadId
-}): Effect.Effect<
-  PhotoReservation | ExistingPhoto,
-  EventNotFound | EventNotLive | CameraNotFound | PhotoLimitExceeded,
-  Sql | import("./env.ts").WorkerEnv
-> =>
-  Effect.gen(function* () {
-    const client = yield* D1Client.D1Client
-    const photoId = PhotoId.make(yield* randomId)
-    const inspect = client<{
-      readonly eventId: string
-      readonly status: EventStatus
-      readonly photoLimit: number
-      readonly cameraId: string | null
-      readonly usedCount: number | null
-      readonly photoId: string | null
-      readonly uploadId: string | null
-      readonly objectKey: string | null
-      readonly thumbKey: string | null
-      readonly takenAt: string | null
-      readonly uploadedAt: string | null
-    }>`
-      SELECT e.id AS eventId, e.status AS status, e.photoLimit AS photoLimit,
-             c.id AS cameraId, c.usedCount AS usedCount,
-             p.id AS photoId, p.uploadId AS uploadId, p.objectKey AS objectKey,
-             p.thumbKey AS thumbKey, p.takenAt AS takenAt, p.uploadedAt AS uploadedAt
-      FROM events e
-      LEFT JOIN cameras c ON c.id = ${params.cameraId} AND c.eventId = e.id
-      LEFT JOIN photos p ON p.eventId = e.id AND p.cameraId = c.id
-        AND p.uploadId = ${params.uploadId}
-      WHERE e.id = ${params.eventId}`
-    const reserve = client<{ readonly usedCount: number }>`
-      UPDATE cameras SET usedCount = usedCount + 1
-      WHERE id = ${params.cameraId}
-        AND eventId = ${params.eventId}
-        AND NOT EXISTS (
-          SELECT 1 FROM photos p
-          WHERE p.eventId = ${params.eventId}
-            AND p.cameraId = ${params.cameraId}
-            AND p.uploadId = ${params.uploadId}
-        )
-        AND EXISTS (
-          SELECT 1 FROM events e
-          WHERE e.id = cameras.eventId
-            AND e.status = 'live'
-            AND cameras.usedCount < e.photoLimit
-        )
-      RETURNING usedCount AS usedCount`
-    const [inspected, reserved] = yield* Effect.orDie(client.batch([inspect, reserve]))
-    const state = inspected[0]
-    if (state === undefined) return yield* new EventNotFound({ id: params.eventId })
-    if (state.status !== "live") {
-      return yield* new EventNotLive({ id: params.eventId, status: state.status })
-    }
-    if (state.cameraId === null) return yield* new CameraNotFound({ id: params.cameraId })
-    if (state.photoId !== null && state.uploadId !== null && state.objectKey !== null &&
-      state.thumbKey !== null && state.takenAt !== null && state.uploadedAt !== null) {
-      return {
-        _tag: "ExistingPhoto" as const,
-        photo: new Photo({
-          id: PhotoId.make(state.photoId),
-          uploadId: UploadId.make(state.uploadId),
-          eventId: params.eventId,
-          cameraId: params.cameraId,
-          objectKey: ObjectKey.make(state.objectKey),
-          thumbKey: ObjectKey.make(state.thumbKey),
-          takenAt: new Date(state.takenAt),
-          uploadedAt: new Date(state.uploadedAt)
-        }),
-        photoLimit: state.photoLimit,
-        usedCount: UsedCount.make(state.usedCount ?? 0)
-      }
-    }
-    const result = reserved[0]
-    if (result === undefined) {
-      return yield* new PhotoLimitExceeded({
-        limit: state.photoLimit,
-        used: state.usedCount ?? state.photoLimit
-      })
-    }
-    return {
-      _tag: "PhotoReservation" as const,
-      photoId,
-      eventId: params.eventId,
-      cameraId: params.cameraId,
-      photoLimit: state.photoLimit,
-      usedCount: UsedCount.make(result.usedCount)
-    }
-  })
-
-/** Inserts the photo associated with an already acquired quota reservation. */
-export const insertReservedPhoto = (params: {
-  readonly reservation: PhotoReservation
-  readonly uploadId: UploadId
-  readonly objectKey: ObjectKey
-  readonly thumbKey: ObjectKey
+  readonly photoId: PhotoId
   readonly takenAt: Date
   readonly uploadedAt: Date
-}): Effect.Effect<Photo, never, Sql> =>
+}): Effect.Effect<Option.Option<ClaimedPhoto>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    const reservation = params.reservation
+    const objectKey = ObjectKey.make(`${params.eventId}-${params.cameraId}-${params.uploadId}`)
     yield* _run(client`
-      INSERT INTO photos (id, uploadId, eventId, cameraId, objectKey, thumbKey, takenAt, uploadedAt)
-      VALUES (${reservation.photoId}, ${params.uploadId}, ${reservation.eventId}, ${reservation.cameraId},
-              ${params.objectKey}, ${params.thumbKey}, ${params.takenAt.toISOString()},
-              ${params.uploadedAt.toISOString()})`)
-    return new Photo({
-      id: reservation.photoId,
-      uploadId: params.uploadId,
-      eventId: reservation.eventId,
-      cameraId: reservation.cameraId,
-      objectKey: params.objectKey,
-      thumbKey: params.thumbKey,
-      takenAt: params.takenAt,
-      uploadedAt: params.uploadedAt
-    })
+      INSERT OR IGNORE INTO photos (id, uploadId, eventId, cameraId, objectKey, thumbKey, takenAt, uploadedAt, status)
+      SELECT ${params.photoId}, ${params.uploadId}, ${params.eventId}, ${params.cameraId}, ${objectKey}, ${objectKey},
+        ${params.takenAt.toISOString()}, ${params.uploadedAt.toISOString()}, 'pending'
+      WHERE EXISTS (SELECT 1 FROM events WHERE id = ${params.eventId} AND status = 'live')
+        AND EXISTS (SELECT 1 FROM cameras WHERE id = ${params.cameraId} AND eventId = ${params.eventId})
+        AND (SELECT COUNT(*) FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId})
+          < (SELECT photoLimit FROM events WHERE id = ${params.eventId})`)
+    return yield* getClaimedPhoto(params.eventId, params.cameraId, params.uploadId)
   })
 
-/** Removes a partial photo and releases exactly one previously reserved quota slot. */
-export const compensatePhotoUpload = (
-  reservation: PhotoReservation
-): Effect.Effect<void, never, Sql> =>
+export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: UploadId): Effect.Effect<Option.Option<ClaimedPhoto>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    yield* Effect.orDie(client.batch([
-      client`
-        DELETE FROM photos
-        WHERE id = ${reservation.photoId}
-          AND eventId = ${reservation.eventId}
-          AND cameraId = ${reservation.cameraId}`,
-      client`
-        UPDATE cameras SET usedCount = usedCount - 1
-        WHERE id = ${reservation.cameraId}
-          AND eventId = ${reservation.eventId}
-          AND usedCount > 0`
-    ]))
+    const rows = yield* _run(client<{
+      readonly id: string; readonly objectKey: string; readonly thumbKey: string; readonly takenAt: string; readonly uploadedAt: string
+    }>`SELECT id, objectKey, thumbKey, takenAt, uploadedAt FROM photos
+      WHERE eventId = ${eventId} AND cameraId = ${cameraId} AND uploadId = ${uploadId}`)
+    const row = rows[0]
+    if (row === undefined) return Option.none()
+    const counts = yield* _run(client<{ readonly usedCount: number; readonly photoLimit: number }>`
+      SELECT (SELECT COUNT(*) FROM photos WHERE eventId = ${eventId} AND cameraId = ${cameraId}) AS usedCount, e.photoLimit
+      FROM cameras c JOIN events e ON e.id = c.eventId
+      WHERE c.id = ${cameraId} AND c.eventId = ${eventId}`)
+    const count = counts[0]
+    if (count === undefined) return Option.none()
+    return Option.some({ photo: new Photo({ id: PhotoId.make(row.id), uploadId, eventId, cameraId,
+      objectKey: ObjectKey.make(row.objectKey), thumbKey: ObjectKey.make(row.thumbKey), takenAt: new Date(row.takenAt), uploadedAt: new Date(row.uploadedAt) }),
+      photoLimit: count.photoLimit, usedCount: UsedCount.make(count.usedCount) })
+  })
+
+export const completePhotoUpload = (id: PhotoId): Effect.Effect<void, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    yield* _run(client`UPDATE photos SET status = 'uploaded' WHERE id = ${id}`)
   })
 
 export const listEventPhotos = (
@@ -383,12 +277,12 @@ export const listEventPhotos = (
       onNone: () => _run(client<PhotoRow>`
         SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
         FROM photos p JOIN events e ON e.id = p.eventId
-        WHERE p.eventId = ${eventId} AND e.ownerId = ${ownerId}
+        WHERE p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'
         ORDER BY p.uploadedAt DESC, p.id DESC LIMIT ${limit}`),
       onSome: (value) => _run(client<PhotoRow>`
         SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
         FROM photos p JOIN events e ON e.id = p.eventId
-        WHERE p.eventId = ${eventId} AND e.ownerId = ${ownerId}
+        WHERE p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'
           AND (p.uploadedAt < ${value.uploadedAt.toISOString()}
             OR (p.uploadedAt = ${value.uploadedAt.toISOString()} AND p.id < ${value.id}))
         ORDER BY p.uploadedAt DESC, p.id DESC LIMIT ${limit}`)
@@ -406,11 +300,3 @@ export const listEventPhotos = (
       })
     )
   })
-
-export const makeObjectKey = (
-  eventId: EventId,
-  cameraId: CameraId,
-  suffix: string,
-  extension: "jpg" | "png" | "webp"
-): Effect.Effect<ObjectKey> =>
-  Effect.succeed(ObjectKey.make(`${eventId}-${cameraId}-${suffix}.${extension}`))

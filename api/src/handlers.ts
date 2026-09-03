@@ -1,4 +1,4 @@
-import { Clock, Effect, Exit, Match, Option, Result, Schema } from "effect"
+import { Clock, Effect, Match, Option, Result, Schema } from "effect"
 import * as Stream from "effect/Stream"
 import * as D1Client from "@effect/sql-d1/D1Client"
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder"
@@ -16,6 +16,7 @@ import {
   HostPhotoPage,
   HostSession,
   PhotoCursor,
+  PhotoId,
   RateLimitExceeded,
   HostPhoto,
   Photo,
@@ -71,11 +72,18 @@ const _requireRateLimit = (
 const _requireHost = (request: HttpServerRequest.HttpServerRequest) =>
   Effect.gen(function* () {
     const env = yield* WorkerEnv
-    if (request.headers.origin !== env.ALLOWED_ORIGIN) return yield* _unauthorized()
+    if (request.headers.origin !== env.HOST_ALLOWED_ORIGIN) return yield* _unauthorized()
     const auth = yield* HostAuth
     const ownerId = yield* auth.authorize(request)
     if (Option.isNone(ownerId)) return yield* _unauthorized()
     return ownerId.value
+  })
+
+const _requireGuestOrigin = (request: HttpServerRequest.HttpServerRequest) =>
+  Effect.gen(function* () {
+    const env = yield* WorkerEnv
+    if (request.headers.origin !== env.GUEST_ALLOWED_ORIGIN) return yield* _unauthorized()
+    return undefined
   })
 
 const _requireEvent = (
@@ -113,10 +121,13 @@ const _singlePart = (
 export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
   handlers
     .handle("getEvent", ({ params }) =>
-      _requireEvent(params.slug).pipe(Effect.map(eventToPublic))
+       _requireEvent(params.slug).pipe(Effect.flatMap((event) =>
+         event.status === "live" ? Effect.succeed(eventToPublic(event)) : Effect.fail(_notFound())
+       ))
     )
     .handle("createCamera", ({ params, payload, request }) =>
       Effect.gen(function* () {
+        yield* _requireGuestOrigin(request)
         const env = yield* WorkerEnv
         yield* _requireRateLimit(request, `camera:${params.slug}`, env.GUEST_RATE_LIMIT)
         const event = yield* _requireEvent(params.slug)
@@ -136,6 +147,7 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
     )
     .handle("uploadPhoto", ({ params, payload, request }) =>
       Effect.gen(function* () {
+        yield* _requireGuestOrigin(request)
         const env = yield* WorkerEnv
         yield* _requireRateLimit(request, `upload:${params.slug}`, env.GUEST_RATE_LIMIT)
         const event = yield* _requireEvent(params.slug)
@@ -172,7 +184,7 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const cameraIdStr = yield* _requiredField(parts, "cameraId")
         const takenAtStr = yield* _requiredField(parts, "takenAt")
         const uploadIdStr = yield* _requiredField(parts, "uploadId")
-        const cameraId = yield* Schema.decodeUnknownEffect(CameraId)(cameraIdStr).pipe(
+        const cameraId = yield* Schema.decodeEffect(CameraId)(cameraIdStr).pipe(
           Effect.mapError(() => _badRequest())
         )
         const takenAt = yield* Schema.decodeUnknownEffect(Schema.Date)(takenAtStr).pipe(
@@ -184,62 +196,22 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const uploadedAt = yield* _nowDate
 
         const r2 = yield* R2
-        const extension = Match.value(filePart.contentType).pipe(
-          Match.when("image/jpeg", () => "jpg" as const),
-          Match.when("image/png", () => "png" as const),
-          Match.orElse(() => "webp" as const)
-        )
-        const objectKey = yield* repo.makeObjectKey(
-          event.id,
+        const claimed = yield* repo.claimPhotoUpload({
+          eventId: event.id,
           cameraId,
-          yield* randomId,
-          extension
-        )
-        const acquireReservation = repo.reservePhotoSlot({ eventId: event.id, cameraId, uploadId }).pipe(
-          Effect.catchTags({
-            PhotoLimitExceeded: () => Effect.fail(new HttpApiError.Conflict()),
-            EventNotFound: () => Effect.fail(_notFound()),
-            EventNotLive: () => Effect.fail(new HttpApiError.Forbidden()),
-            CameraNotFound: () => Effect.fail(_notFound())
-          })
-        )
-        const outcome = yield* Effect.acquireUseRelease(
-          acquireReservation,
-          (acquired) => Effect.gen(function* () {
-            if (acquired._tag === "ExistingPhoto") {
-              return { _tag: "ExistingPhoto" as const, existing: acquired }
-            }
-            const reserved = acquired
-            yield* r2.put(objectKey, file.bytes, file.contentType)
-            const photo = yield* repo.insertReservedPhoto({
-              reservation: reserved,
-              uploadId,
-              objectKey,
-              thumbKey: objectKey,
-              takenAt,
-              uploadedAt
-            })
-            return { _tag: "UploadedPhoto" as const, photo, reservation: reserved }
-          }),
-          (acquired, exit) => acquired._tag === "ExistingPhoto" || Exit.isSuccess(exit)
-            ? Effect.void
-            : repo.compensatePhotoUpload(acquired).pipe(Effect.ensuring(r2.delete(objectKey)))
-        )
-
-        if (outcome._tag === "ExistingPhoto") {
-          return new UploadResult({
-            photoId: outcome.existing.photo.id,
-            usedCount: outcome.existing.usedCount,
-            photoLimit: outcome.existing.photoLimit,
-            remaining: Math.max(outcome.existing.photoLimit - outcome.existing.usedCount, 0)
-          })
-        }
-
+          uploadId,
+          photoId: PhotoId.make(yield* randomId),
+          takenAt,
+          uploadedAt
+        })
+        if (Option.isNone(claimed)) return yield* new HttpApiError.Conflict()
+        yield* r2.put(claimed.value.photo.objectKey, file.bytes, file.contentType)
+        yield* repo.completePhotoUpload(claimed.value.photo.id)
         return new UploadResult({
-          photoId: outcome.photo.id,
-          usedCount: outcome.reservation.usedCount,
-          photoLimit: outcome.reservation.photoLimit,
-          remaining: Math.max(outcome.reservation.photoLimit - outcome.reservation.usedCount, 0)
+          photoId: claimed.value.photo.id,
+          usedCount: claimed.value.usedCount,
+          photoLimit: claimed.value.photoLimit,
+          remaining: Math.max(claimed.value.photoLimit - claimed.value.usedCount, 0)
         })
       })
     )
@@ -266,8 +238,9 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         return new HostSession({ authenticated: true })
       })
     )
-    .handle("logoutHost", () =>
+    .handle("logoutHost", ({ request }) =>
       Effect.gen(function* () {
+        yield* _requireHost(request)
         yield* HttpEffect.appendPreResponseHandler((_request, response) =>
           HttpServerResponse.setCookie(response, HostSessionCookie, "", {
             path: "/",
@@ -304,9 +277,9 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         const now = yield* _nowDate
         const transitioned = transitionEventStatus(event, payload.status, now)
         if (Result.isFailure(transitioned)) return yield* Effect.fail(_badRequest())
-        const updated = yield* repo.updateEventStatus(event.id, ownerId, payload.status, now)
+        const updated = yield* repo.updateEventStatus(event.id, ownerId, event.status, payload.status, now)
         return yield* Option.match(updated, {
-          onNone: () => Effect.fail(_notFound()),
+          onNone: () => Effect.fail(_badRequest()),
           onSome: (e) => Effect.succeed(eventToPublic(e))
         })
       })
