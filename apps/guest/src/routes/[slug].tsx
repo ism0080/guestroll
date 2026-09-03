@@ -52,8 +52,8 @@ const GuestRoute = (): JSX.Element => {
   let fileInput: HTMLInputElement | undefined
 
   const storedFull = createMemo<boolean>(() => {
-    const stored = camera()
-    return stored !== null && stored.usedCount >= stored.photoLimit
+    const storedCamera = camera()
+    return storedCamera !== null && storedCamera.usedCount >= storedCamera.photoLimit
   })
 
   const eventQuery = createQuery(() => ({

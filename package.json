@@ -9,6 +9,7 @@
   "scripts": {
     "prepare": "effect-tsgo patch --oxlint",
     "typecheck": "tsc --noEmit && bun run --cwd apps/api typecheck && bun run --cwd apps/guest typecheck && bun run --cwd apps/host typecheck",
+    "deploy": "bun alchemy deploy",
     "lint": "oxlint",
     "test": "bun test"
   },

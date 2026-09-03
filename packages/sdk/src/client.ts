@@ -22,7 +22,7 @@ export type HostApi = ApiClient["host"]
  * transport. Requires no runtime services once built — the returned client
  * methods are plain `Effect`s that can be run with `Effect.runPromise`.
  */
-export const makeApiClient = (options: ApiClientOptions): Effect.Effect<ApiClient, never> =>
+export const makeApiClient = (options: ApiClientOptions): Effect.Effect<ApiClient> =>
   HttpApiClient.make(EventsApi, {
     baseUrl: options.baseUrl
   }).pipe(
