@@ -1,0 +1,13 @@
+{
+  "name": "@guestroll/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@guestroll/api": "workspace:*",
+    "@guestroll/contracts": "workspace:*",
+    "effect": "4.0.0-rc.112"
+  }
+}
