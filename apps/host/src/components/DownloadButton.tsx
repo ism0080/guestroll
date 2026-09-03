@@ -26,12 +26,20 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
 
   const handleStatus = async (status: DownloadStatus): Promise<void> => {
     if (status.status === "ready") {
+      if (pollTimer !== undefined) window.clearInterval(pollTimer)
+      pollTimer = undefined
       setPhase("idle")
-      await startFileDownload(props.slug)
+      try {
+        await startFileDownload(props.slug)
+      } catch {
+        setPhase("error")
+        setMessage("Couldn't download the ZIP — try again.")
+      }
       return
     }
     if (status.status === "error") {
       if (pollTimer !== undefined) window.clearInterval(pollTimer)
+      pollTimer = undefined
       setPhase("error")
       setMessage("The ZIP build failed — try again.")
     }
