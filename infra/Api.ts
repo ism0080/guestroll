@@ -93,7 +93,7 @@ export default Cloudflare.Worker(
         Layer.provide(
           HttpRouter.cors({
              allowedOrigins: [env["HOST_ALLOWED_ORIGIN"], env["GUEST_ALLOWED_ORIGIN"]],
-            allowedMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+            allowedMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "b3", "traceparent", "tracestate", "baggage"],
             credentials: true
           })

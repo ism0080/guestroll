@@ -22,7 +22,23 @@ describe("event status transitions", () => {
     expect(Result.isSuccess(result)).toBe(true)
   })
 
-  test("rejects repeated and reverse transitions", () => {
+  test("allows live back to draft", () => {
+    const live = new Event({
+      id: event.id,
+      ownerId: event.ownerId,
+      slug: event.slug,
+      title: event.title,
+      coverKey: event.coverKey,
+      filterPack: event.filterPack,
+      photoLimit: event.photoLimit,
+      status: "live",
+      createdAt: event.createdAt,
+      updatedAt: event.updatedAt
+    })
+    expect(Result.isSuccess(transitionEventStatus(live, "draft", createdAt))).toBe(true)
+  })
+
+  test("rejects repeated transitions", () => {
     expect(Result.isFailure(transitionEventStatus(event, "draft", createdAt))).toBe(true)
     const live = new Event({
       id: event.id,
@@ -36,6 +52,6 @@ describe("event status transitions", () => {
       createdAt: event.createdAt,
       updatedAt: event.updatedAt
     })
-    expect(Result.isFailure(transitionEventStatus(live, "draft", createdAt))).toBe(true)
+    expect(Result.isFailure(transitionEventStatus(live, "live", createdAt))).toBe(true)
   })
 })

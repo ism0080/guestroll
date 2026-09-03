@@ -19,7 +19,7 @@ export interface EventContext {
 export const transitionAllowed = (from: EventStatus, to: EventStatus): boolean =>
   Match.value(from).pipe(
     Match.when("draft", () => to === "live"),
-    Match.when("live", () => false),
+    Match.when("live", () => to === "draft"),
     Match.orElse(() => false)
   )
 
