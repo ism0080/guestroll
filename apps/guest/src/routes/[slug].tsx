@@ -1,7 +1,7 @@
 import { Title } from "@solidjs/meta"
 import { useParams } from "@solidjs/router"
-import type { EventPublic } from "@guestroll/contracts"
-import { createSignal, onMount, Show } from "solid-js"
+import { createMutation, createQuery } from "@tanstack/solid-query"
+import { createMemo, createSignal, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { ApiError, createCamera, getEvent, randomUUID, uploadPhoto } from "~/lib/api"
 import { compressCanvas, loadGalleryBitmap, renderFrame } from "~/lib/image"
@@ -25,6 +25,12 @@ interface ReviewPhoto {
   readonly takenAt: Date
 }
 
+interface UploadVariable {
+  readonly canvas: HTMLCanvasElement
+  readonly takenAt: Date
+  readonly uploadId: string
+}
+
 const _kindFor = (error: ApiError): ErrorKind => {
   switch (error.kind) {
     case "not-found":
@@ -45,45 +51,47 @@ const _slugRoute = (): string => {
 const GuestRoute = (): JSX.Element => {
   const slug = _slugRoute()
 
-  const [phase, setPhase] = createSignal<Phase>("loading")
-  const [errorKind, setErrorKind] = createSignal<ErrorKind>("unknown")
-  const [event, setEvent] = createSignal<EventPublic | null>(null)
-  const [camera, setCamera] = createSignal<CameraSession | null>(null)
+  const [camera, setCamera] = createSignal<CameraSession | null>(loadCameraSession(slug) ?? null)
   const [guestName, setGuestName] = createSignal("")
-  const [starting, setStarting] = createSignal(false)
   const [cameraIssue, setCameraIssue] = createSignal(false)
   const [review, setReview] = createSignal<ReviewPhoto | null>(null)
-  const [busy, setBusy] = createSignal(false)
-  const [uploadError, setUploadError] = createSignal<string | null>(null)
-  const [doneCount, setDoneCount] = createSignal(0)
+  const [fatalError, setFatalError] = createSignal<ErrorKind | null>(null)
+  const [forceDone, setForceDone] = createSignal(false)
   let fileInput: HTMLInputElement | undefined
 
-  const enterError = (kind: ErrorKind): void => {
-    setErrorKind(kind)
-    setPhase("error")
-  }
+  const storedFull = createMemo<boolean>(() => {
+    const stored = camera()
+    return stored !== null && stored.usedCount >= stored.photoLimit
+  })
 
-  const loadEvent = async (): Promise<void> => {
-    setPhase("loading")
-    const stored = loadCameraSession(slug)
-    if (stored !== undefined && stored.usedCount >= stored.photoLimit) {
-      setDoneCount(stored.usedCount)
-      setPhase("done")
-      return
+  const eventQuery = createQuery(() => ({
+    queryKey: ["event", slug],
+    queryFn: () => getEvent(slug),
+    enabled: !storedFull(),
+    retry: (failureCount, error) => {
+      if (failureCount >= 3) return false
+      if (!(error instanceof ApiError)) return true
+      return error.kind === "network" || error.kind === "unknown"
     }
-    try {
-      const loaded = await getEvent(slug)
-      setEvent(loaded)
-      if (stored !== undefined) {
-        setCamera(stored)
-        setPhase("shooting")
-      } else {
-        setPhase("welcome")
-      }
-    } catch (error) {
-      enterError(error instanceof ApiError ? _kindFor(error) : "network")
-    }
-  }
+  }))
+
+  const phase = createMemo<Phase>(() => {
+    if (fatalError() !== null) return "error"
+    if (forceDone() || storedFull()) return "done"
+    if (eventQuery.isPending) return "loading"
+    if (eventQuery.isError) return "error"
+    if (camera() !== null) return "shooting"
+    return "welcome"
+  })
+
+  const errorKind = createMemo<ErrorKind>(() => {
+    const forced = fatalError()
+    if (forced !== null) return forced
+    const error = eventQuery.error
+    return error instanceof ApiError ? _kindFor(error) : "unknown"
+  })
+
+  const doneCount = createMemo<number>(() => camera()?.usedCount ?? 0)
 
   const makeSession = (cameraId: string, usedCount: number, photoLimit: number): CameraSession => {
     const trimmed = guestName().trim()
@@ -95,40 +103,75 @@ const GuestRoute = (): JSX.Element => {
     }
   }
 
-  const ensureCamera = async (): Promise<CameraSession> => {
-    const existing = camera()
-    if (existing !== null) return existing
-    const loaded = event()
-    if (loaded === null) throw new ApiError("network", "Event not loaded")
-    const result = await createCamera(loaded.slug, guestName().trim() === "" ? undefined : guestName().trim())
-    const session = makeSession(result.cameraId, result.usedCount, result.photoLimit)
-    saveCameraSession(loaded.slug, session)
-    setCamera(session)
-    setPhase("shooting")
-    return session
+  const createCameraMutation = createMutation(() => ({
+    mutationFn: async () => {
+      const loaded = eventQuery.data
+      if (loaded === undefined) throw new ApiError("network", "Event not loaded")
+      const name = guestName().trim()
+      return createCamera(loaded.slug, name === "" ? undefined : name)
+    },
+    onSuccess: (result) => {
+      const loaded = eventQuery.data
+      if (loaded === undefined) return
+      const session = makeSession(result.cameraId, result.usedCount, result.photoLimit)
+      saveCameraSession(loaded.slug, session)
+      setCamera(session)
+    },
+    onError: (error) => {
+      setFatalError(error instanceof ApiError ? _kindFor(error) : "unknown")
+    }
+  }))
+
+  const uploadMutation = createMutation(() => ({
+    mutationFn: async ({ canvas, takenAt, uploadId }: UploadVariable) => {
+      const loaded = eventQuery.data
+      const session = camera()
+      if (loaded === undefined || session === null) throw new ApiError("network", "Not ready")
+      const blob = await compressCanvas(canvas)
+      return uploadPhoto({
+        slug: loaded.slug,
+        cameraId: session.cameraId,
+        takenAt,
+        uploadId,
+        file: blob
+      })
+    },
+    retry: (failureCount, error) => {
+      if (failureCount >= 3) return false
+      return error instanceof ApiError && error.kind === "network"
+    },
+    onSuccess: (result) => {
+      const loaded = eventQuery.data
+      const session = camera()
+      if (loaded === undefined || session === null) return
+      const updated = makeSession(session.cameraId, result.usedCount, result.photoLimit)
+      saveCameraSession(loaded.slug, updated)
+      setCamera(updated)
+      setReview(null)
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.kind === "conflict") {
+        setReview(null)
+        setForceDone(true)
+      }
+    }
+  }))
+
+  const uploadError = createMemo<string | null>(() => {
+    const error = uploadMutation.error
+    if (error === null) return null
+    if (error instanceof ApiError && error.kind === "conflict") return null
+    return error instanceof ApiError ? error.message : "Couldn't send that photo. Try again."
+  })
+
+  const handleStart = (): void => {
+    createCameraMutation.mutate()
   }
 
-  const handleStart = async (): Promise<void> => {
-    setStarting(true)
-    try {
-      await ensureCamera()
-    } catch (error) {
-      enterError(error instanceof ApiError ? _kindFor(error) : "unknown")
-    } finally {
-      setStarting(false)
-    }
-  }
-
-  const handleGallery = async (): Promise<void> => {
-    setStarting(true)
-    try {
-      await ensureCamera()
-      fileInput?.click()
-    } catch (error) {
-      enterError(error instanceof ApiError ? _kindFor(error) : "unknown")
-    } finally {
-      setStarting(false)
-    }
+  const handleGallery = (): void => {
+    createCameraMutation.mutate(undefined, {
+      onSuccess: () => fileInput?.click()
+    })
   }
 
   const handleGalleryFile = async (file: File): Promise<void> => {
@@ -150,46 +193,23 @@ const GuestRoute = (): JSX.Element => {
 
   const handleRetake = (): void => {
     setReview(null)
-    setUploadError(null)
-    setBusy(false)
+    uploadMutation.reset()
   }
 
-  const handleKeep = async (): Promise<void> => {
+  const handleKeep = (): void => {
     const current = review()
-    const session = camera()
-    const loaded = event()
-    if (current === null || session === null || loaded === null) return
-    setBusy(true)
-    setUploadError(null)
-    try {
-      const blob = await compressCanvas(current.canvas)
-      const result = await uploadPhoto({
-        slug: loaded.slug,
-        cameraId: session.cameraId,
-        takenAt: current.takenAt,
-        uploadId: randomUUID(),
-        file: blob
-      })
-      const updated = makeSession(session.cameraId, result.usedCount, result.photoLimit)
-      saveCameraSession(loaded.slug, updated)
-      setCamera(updated)
-      setReview(null)
-      setBusy(false)
-      if (result.remaining <= 0) {
-        setDoneCount(result.usedCount)
-        setPhase("done")
-      }
-    } catch (error) {
-      setBusy(false)
-      if (error instanceof ApiError && error.kind === "conflict") {
-        const session2 = camera()
-        setReview(null)
-        setUploadError(null)
-        setDoneCount(session2?.usedCount ?? 0)
-        setPhase("done")
-        return
-      }
-      setUploadError(error instanceof ApiError ? error.message : "Couldn't send that photo. Try again.")
+    if (current === null) return
+    uploadMutation.mutate({
+      canvas: current.canvas,
+      takenAt: current.takenAt,
+      uploadId: randomUUID()
+    })
+  }
+
+  const handleRetry = (): void => {
+    setFatalError(null)
+    if (eventQuery.data === undefined) {
+      eventQuery.refetch().catch(() => {})
     }
   }
 
@@ -198,17 +218,15 @@ const GuestRoute = (): JSX.Element => {
     setCamera(null)
     setReview(null)
     setGuestName("")
-    setPhase("welcome")
+    setForceDone(false)
+    setFatalError(null)
+    uploadMutation.reset()
   }
-
-  onMount(() => {
-    loadEvent().catch(() => enterError("network"))
-  })
 
   return (
     <>
-      <Show when={event() !== null}>
-        <Title>{event()?.title ?? "Guestroll"}</Title>
+      <Show when={eventQuery.data !== undefined}>
+        <Title>{eventQuery.data?.title ?? "Guestroll"}</Title>
       </Show>
 
       <Show when={phase() === "loading"}>
@@ -222,28 +240,28 @@ const GuestRoute = (): JSX.Element => {
       </Show>
 
       <Show when={phase() === "error"}>
-        <ErrorScreen kind={errorKind()} onRetry={() => loadEvent().catch(() => {})} />
+        <ErrorScreen kind={errorKind()} onRetry={handleRetry} />
       </Show>
 
-      <Show when={phase() === "welcome" && event() !== null}>
+      <Show when={phase() === "welcome" && eventQuery.data !== undefined}>
         <WelcomeScreen
-          title={event()!.title}
-          photoLimit={event()!.photoLimit}
-          starting={starting()}
+          title={eventQuery.data!.title}
+          photoLimit={eventQuery.data!.photoLimit}
+          starting={createCameraMutation.isPending}
           guestName={guestName}
           setGuestName={setGuestName}
-          onStart={() => handleStart().catch(() => {})}
-          onPickFromGallery={() => handleGallery().catch(() => {})}
+          onStart={handleStart}
+          onPickFromGallery={handleGallery}
         />
       </Show>
 
-      <Show when={phase() === "shooting" && camera() !== null && event() !== null}>
+      <Show when={phase() === "shooting" && camera() !== null && eventQuery.data !== undefined}>
         <div class="relative">
           <CameraScreen
             usedCount={() => camera()?.usedCount ?? 0}
             photoLimit={camera()!.photoLimit}
             onCapture={handleCapture}
-            onPickFromGallery={() => handleGallery().catch(() => {})}
+            onPickFromGallery={handleGallery}
             onUnavailable={() => setCameraIssue(true)}
           />
           <Show when={cameraIssue()}>
@@ -273,16 +291,16 @@ const GuestRoute = (): JSX.Element => {
       <Show when={review() !== null}>
         <ReviewOverlay
           url={review()!.url}
-          busy={busy()}
+          busy={uploadMutation.isPending}
           error={uploadError()}
-          onKeep={() => handleKeep().catch(() => {})}
+          onKeep={handleKeep}
           onRetake={handleRetake}
         />
       </Show>
 
       <Show when={phase() === "done"}>
         <DoneScreen
-          title={event()?.title ?? "the couple"}
+          title={eventQuery.data?.title ?? "the couple"}
           count={doneCount()}
           onRetake={handleRetakeCamera}
         />
