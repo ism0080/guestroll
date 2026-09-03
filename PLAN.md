@@ -75,12 +75,12 @@ guest PWA (Solid) ──▶ Workers API (Effect v4) ──▶ R2 (originals/thum
 guestroll/
   alchemy.run.ts  # Alchemy v2 composition root: R2, D1, Worker, Websites
   apps/
+    api/          # Effect v4 Worker (HttpApi endpoints, layers)
     guest/        # SolidStart PWA: camera + upload (static, Website.Vite)
     host/         # passcode dashboard (Solid, reuses shared UI)
   packages/
     contracts/    # effect/Schema DTOs, shared by API + client
     domain/       # pure Effect models: Owner, Event, Camera, rules
-  api/            # Effect v4 Worker (HttpApi endpoints, layers)
   PLAN.md
 ```
 
@@ -150,11 +150,12 @@ transactions; use native `batch`).
   atomic multi-write (photo limit + counter). Not supported: `withTransaction`,
   `executeStream`.
 - **Cloudflare env binding:** Effect wants layers up-front, Workers give `env`
-  per request. The `api/` package requires `WorkerEnv` as an open dependency;
-  the infra Worker (`infra/Api.ts`) provides it from the Cloudflare
-  environment and bridges to a Worker fetch via `HttpRouter.toHttpEffect` on
-  the fully provided app layer (`AppLive` + `ApiApp`). No custom `effect-cf`
-  binding layer needed — `@effect/sql-d1` + `WorkerEnv` covers D1 and R2.
+  per request. The `apps/api/` package requires `WorkerEnv` as an open
+  dependency; the infra Worker (`infra/Api.ts`) provides it from the
+  Cloudflare environment and bridges to a Worker fetch via
+  `HttpRouter.toHttpEffect` on the fully provided app layer (`AppLive` +
+  `ApiApp`). No custom `effect-cf` binding layer needed — `@effect/sql-d1` +
+  `WorkerEnv` covers D1 and R2.
 
 ## Alchemy v2 (IaC — Infrastructure as Effects)
 
@@ -245,8 +246,8 @@ patch ever fails, align the oxlint version to what `effect-tsgo` lists.
   `effect-solutions@0.5.3`, `@oxlint/plugins@1.80.0`.
 - `.oxlintrc.json` created: extends Effect recommended preset **and** wires the
   custom `anti-slop`, `effect`, `core` plugins from `tools/oxlint/` (copied
-  from site-studio). Effect rules scoped to `api/`, `packages/domain/`,
-  `packages/contracts/`.
+  from site-studio). Effect rules scoped to `apps/api/`,
+  `packages/domain/`, `packages/contracts/`.
 - `package.json` scripts added: `prepare: effect-tsgo patch --oxlint`,
   `typecheck: tsc --noEmit`, `lint: oxlint`.
 - `tsconfig.json` LSP plugin added (`@effect/language-service`, `diagnostics:
@@ -310,7 +311,7 @@ Effect TS-Go integration). Effect rules need Oxlint's type-aware mode + the
 - `anti-slop` — 15 generic low-evidence/low-signal patterns (no chained type
   assertions, no runtime typeof, no unsafe dictionary types, no known-value
   widening, require `SAFETY:` comments for assertions, etc.). Enabled globally.
-- `effect` — 19 Effect-first rules scoped to Effect code (`api/`,
+- `effect` — 19 Effect-first rules scoped to Effect code (`apps/api/`,
   `packages/domain/`, `packages/contracts/`): no try/catch, no global JSON, no
   switch (use `Match`), no `in` operator, no silent error swallow, no
   cascading/nested `Layer.provide`, no service-option, no static service

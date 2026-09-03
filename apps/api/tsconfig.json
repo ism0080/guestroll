@@ -1,10 +1,11 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "module": "Preserve",
     "moduleResolution": "bundler",
     "noEmit": true,
     "types": ["bun", "@cloudflare/workers-types"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": []
 }

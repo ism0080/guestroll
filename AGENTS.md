@@ -14,21 +14,21 @@ data-modeling, error-handling, config, testing, cli.
 
 ## API ↔ Infra boundary
 
-The `api/` package owns the **API surface and app services only**. It must not
-own any Cloudflare/Worker runtime wiring.
+The `apps/api/` package owns the **API surface and app services only**. It must
+not own any Cloudflare/Worker runtime wiring.
 
-**`api/` owns:**
+**`apps/api/` owns:**
 - `EventsApi` — the HttpApi definition (groups/endpoints)
 - `GuestLive` / `HostLive` — `HttpApiBuilder.group` implementations
 - `AppLive` — the app service layer (D1 client + R2 + owner scope),
   **requiring** `WorkerEnv` as an open dependency
 - `ApiApp` — `HttpApiBuilder.layer(EventsApi)` provided with the group layers
 
-**Infra owns (alchemy `alchemy.run.ts`, NOT `api/`):**
+**Infra owns (alchemy `alchemy.run.ts`, NOT `apps/api/`):**
 - The `Cloudflare.Worker` resource and its typed bindings
 - Providing `WorkerEnv` from the Cloudflare environment
 - **D1 schema + migrations via Drizzle** (`Drizzle.Schema` + `Cloudflare.D1`
-  `migrations` prop, applied on deploy). The `api/` repo SQL assumes the
+  `migrations` prop, applied on deploy). The `apps/api/` repo SQL assumes the
   migrated table shape (columns: `id`, `ownerId`, `slug`, `title`, `coverKey`,
   `filterPack`, `photoLimit`, `status`, `createdAt`, `updatedAt`; `cameras`:
   `id`, `eventId`, `guestName`, `usedCount`, `createdAt`; `photos`: `id`,
@@ -41,4 +41,5 @@ own any Cloudflare/Worker runtime wiring.
 
 Do not add `toWebHandler` / `makeFetch` / `createWorker`, DDL / `migrate`, or
 any `HttpPlatform` / `FileSystem` / `Etag` / `HttpRouter` / Drizzle wiring
-inside `api/`. A new infra slice composes those against `AppLive` + `ApiApp`.
+inside `apps/api/`. A new infra slice composes those against `AppLive` +
+`ApiApp`.

@@ -26,7 +26,7 @@
         "typescript": "7.0.2",
       },
     },
-    "api": {
+    "apps/api": {
       "name": "@guestroll/api",
       "version": "0.0.0",
       "dependencies": {
@@ -302,7 +302,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
-    "@guestroll/api": ["@guestroll/api@workspace:api"],
+    "@guestroll/api": ["@guestroll/api@workspace:apps/api"],
 
     "@guestroll/contracts": ["@guestroll/contracts@workspace:packages/contracts"],
 

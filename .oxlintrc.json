@@ -149,7 +149,7 @@
     },
     {
       "files": [
-        "api/**",
+        "apps/api/**",
         "packages/domain/**",
         "packages/contracts/**"
       ],
@@ -177,7 +177,7 @@
     },
     {
       "files": [
-        "api/**",
+        "apps/api/**",
         "packages/domain/**",
         "packages/contracts/**"
       ],
