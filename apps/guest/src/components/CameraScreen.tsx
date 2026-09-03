@@ -63,12 +63,21 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   const [zoom, setZoomValue] = createSignal(1)
   const [focusSupported, setFocusSupported] = createSignal(false)
   const [focusPoint, setFocusPoint] = createSignal<FocusPoint | null>(null)
+  const [zoomVisible, setZoomVisible] = createSignal(false)
   let video: HTMLVideoElement | undefined
   let viewport: HTMLDivElement | undefined
   let stream: MediaStream | undefined
   let attachId = 0
   let focusTimeout: ReturnType<typeof setTimeout> | undefined
+  let zoomHideTimeout: ReturnType<typeof setTimeout> | undefined
   let pinchStart: { readonly distance: number; readonly zoom: number } | null = null
+
+  /** Reveals the zoom slider, hiding it again after a quiet period. */
+  const pokeZoomControls = (): void => {
+    setZoomVisible(true)
+    if (zoomHideTimeout !== undefined) clearTimeout(zoomHideTimeout)
+    zoomHideTimeout = setTimeout(() => setZoomVisible(false), 2500)
+  }
 
   const flash = (): void => {
     setFlashing(true)
@@ -86,6 +95,8 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     setZoomRange(range)
     setZoomValue(range?.value ?? SOFTWARE_ZOOM.value)
     setFocusSupported(getFocusInfo(stream).modes.includes("single-shot"))
+    // Briefly reveal the slider so the control is discoverable, then fade.
+    pokeZoomControls()
   }
 
   const attach = async (mode: FacingMode, id: string | undefined): Promise<void> => {
@@ -120,6 +131,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     viewport?.removeEventListener("gesturestart", preventPageGesture)
     viewport?.removeEventListener("gesturechange", preventPageGesture)
     if (focusTimeout !== undefined) clearTimeout(focusTimeout)
+    if (zoomHideTimeout !== undefined) clearTimeout(zoomHideTimeout)
     if (stream !== undefined) stopStream(stream)
   })
 
@@ -179,6 +191,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   }
 
   const handleZoomInput = (event: InputEvent & { currentTarget: HTMLInputElement }): void => {
+    pokeZoomControls()
     applyZoom(Number(event.currentTarget.value))
   }
 
@@ -190,6 +203,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
 
   const handleTouchStart = (event: TouchEvent): void => {
     if (event.touches.length === 2) {
+      pokeZoomControls()
       pinchStart = { distance: touchDistance(event.touches), zoom: zoom() }
     }
   }
@@ -197,6 +211,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   const handleTouchMove = (event: TouchEvent): void => {
     if (event.touches.length !== 2 || pinchStart === null) return
     event.preventDefault()
+    pokeZoomControls()
     const range = sliderRange()
     const distance = touchDistance(event.touches)
     if (pinchStart.distance <= 0) return
@@ -304,7 +319,12 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
             </For>
           </div>
         </Show>
-        <div class="pointer-events-auto flex w-full max-w-xs items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+        <div
+          class={`pointer-events-auto flex w-full max-w-xs items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm transition-opacity duration-300 ${
+            zoomVisible() ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          aria-hidden={!zoomVisible()}
+        >
           <span class="badge badge-ghost border-0 bg-white/10 text-[11px] font-bold text-white">{zoomLabel()}</span>
           <input
             type="range"
