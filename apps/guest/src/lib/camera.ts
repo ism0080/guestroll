@@ -1,36 +1,135 @@
 export type FacingMode = "environment" | "user"
 
-const _constraints = (facingMode: FacingMode): MediaStreamConstraints => ({
-  audio: false,
-  video: {
-    facingMode,
-    width: { ideal: 1920 },
-    height: { ideal: 1440 }
+export interface CameraDevice {
+  readonly deviceId: string
+  readonly label: string
+  readonly facing: FacingMode | "unknown"
+}
+
+export interface ZoomRange {
+  readonly min: number
+  readonly max: number
+  readonly step: number
+  readonly value: number
+}
+
+export interface FocusInfo {
+  readonly modes: ReadonlyArray<string>
+  readonly distance: ZoomRange | null
+}
+
+export interface StartStreamOptions {
+  readonly facingMode: FacingMode
+  readonly deviceId?: string
+}
+
+const _constraints = (options: StartStreamOptions): MediaStreamConstraints => {
+  if (options.deviceId !== undefined && options.deviceId !== "") {
+    return {
+      audio: false,
+      video: {
+        deviceId: { exact: options.deviceId },
+        width: { ideal: 1920 },
+        height: { ideal: 1440 }
+      }
+    }
   }
-})
+  return {
+    audio: false,
+    video: {
+      facingMode: options.facingMode,
+      width: { ideal: 1920 },
+      height: { ideal: 1440 }
+    }
+  }
+}
 
 /** Requests a camera stream. Throws on permission denial or missing camera. */
-export const startStream = async (facingMode: FacingMode): Promise<MediaStream> => {
+export const startStream = async (
+  facingMode: FacingMode,
+  deviceId?: string
+): Promise<MediaStream> => {
   const mediaDevices = navigator.mediaDevices
   if (mediaDevices === undefined) {
     throw new Error("Camera access requires a secure (HTTPS) connection")
   }
-  const stream = await mediaDevices.getUserMedia(_constraints(facingMode))
-  const video = stream.getVideoTracks()[0]
-  if (video === undefined) {
-    for (const track of stream.getTracks()) track.stop()
-    throw new Error("No video track available")
+  const options: StartStreamOptions = { facingMode, deviceId }
+  try {
+    const stream = await mediaDevices.getUserMedia(_constraints(options))
+    const video = stream.getVideoTracks()[0]
+    if (video === undefined) {
+      for (const track of stream.getTracks()) track.stop()
+      throw new Error("No video track available")
+    }
+    return stream
+  } catch (error) {
+    // Exact deviceId can fail when the OS re-enumerates cameras; fall back
+    // to a plain facingMode request before surfacing the error.
+    if (options.deviceId !== undefined && options.deviceId !== "") {
+      return startStream(facingMode)
+    }
+    throw error
   }
-  return stream
 }
 
 export const stopStream = (stream: MediaStream): void => {
   for (const track of stream.getTracks()) track.stop()
 }
 
+const _videoTrack = (stream: MediaStream): MediaStreamTrack | undefined =>
+  stream.getVideoTracks()[0]
+
+const _inferFacing = (label: string): FacingMode | "unknown" => {
+  const lower = label.toLowerCase()
+  if (
+    lower.includes("front") ||
+    lower.includes("user") ||
+    lower.includes("selfie") ||
+    lower.includes("facetime")
+  ) {
+    return "user"
+  }
+  if (
+    lower.includes("back") ||
+    lower.includes("rear") ||
+    lower.includes("environment") ||
+    lower.includes("ultra-wide") ||
+    lower.includes("ultrawide") ||
+    lower.includes("wide") ||
+    lower.includes("tele") ||
+    lower.includes("main")
+  ) {
+    return "environment"
+  }
+  return "unknown"
+}
+
+/**
+ * Lists available cameras. Labels are empty until camera permission is
+ * granted, so call this after `startStream` resolves. Returns an empty array
+ * when enumeration is unsupported.
+ */
+export const listCameras = async (): Promise<ReadonlyArray<CameraDevice>> => {
+  const mediaDevices = navigator.mediaDevices
+  if (mediaDevices === undefined || mediaDevices.enumerateDevices === undefined) {
+    return []
+  }
+  const devices = await mediaDevices.enumerateDevices()
+  return devices
+    .filter((device) => device.kind === "videoinput")
+    .map((device, index): CameraDevice => {
+      const label = device.label === "" ? `Camera ${index + 1}` : device.label
+      return {
+        deviceId: device.deviceId,
+        label,
+        facing: device.label === "" ? "unknown" : _inferFacing(device.label)
+      }
+    })
+};
+
 /** Best-effort torch toggle; returns false when the device cannot flash. */
 export const setTorch = async (stream: MediaStream, on: boolean): Promise<boolean> => {
-  const video = stream.getVideoTracks()[0]
+  const video = _videoTrack(stream)
   if (video === undefined) return false
   try {
     await video.applyConstraints({ advanced: [{ torch: on }] })
@@ -38,7 +137,94 @@ export const setTorch = async (stream: MediaStream, on: boolean): Promise<boolea
   } catch {
     return false
   }
-}
+};
+
+/** Returns the zoom range when the active camera supports optical/digital zoom. */
+export const getZoomRange = (stream: MediaStream): ZoomRange | null => {
+  const video = _videoTrack(stream)
+  if (video === undefined || video.getCapabilities === undefined) return null
+  const capabilities = video.getCapabilities()
+  const zoom = capabilities.zoom
+  if (zoom === undefined || zoom.min === undefined || zoom.max === undefined) return null
+  const min = zoom.min
+  const max = zoom.max
+  const settings = video.getSettings()
+  const rawZoom = settings.zoom
+  // SAFETY: `Number.isFinite` rules out undefined/NaN, leaving only the
+  // finite number the spec defines for `zoom`.
+  const current = Number.isFinite(rawZoom) ? (rawZoom as number) : min
+  if (!(max > min)) return null
+  const step = zoom.step && zoom.step > 0 ? zoom.step : (max - min) / 20
+  return {
+    min,
+    max,
+    step,
+    value: Math.min(Math.max(current, min), max)
+  }
+};
+
+/** Applies a zoom level, clamped to the device range. Returns false when unsupported. */
+export const setZoom = async (stream: MediaStream, value: number): Promise<boolean> => {
+  const range = getZoomRange(stream)
+  const video = _videoTrack(stream)
+  if (range === null || video === undefined) return false
+  const clamped = Math.min(Math.max(value, range.min), range.max)
+  try {
+    await video.applyConstraints({ advanced: [{ zoom: clamped }] })
+    return true
+  } catch {
+    return false
+  }
+};
+
+/** Reports focus capabilities; empty modes means tap-to-focus is unsupported. */
+export const getFocusInfo = (stream: MediaStream): FocusInfo => {
+  const video = _videoTrack(stream)
+  const empty: FocusInfo = { modes: [], distance: null }
+  if (video === undefined || video.getCapabilities === undefined) return empty
+  const capabilities = video.getCapabilities()
+  const modes = capabilities.focusMode ?? []
+  const distanceCapabilities = capabilities.focusDistance
+  if (distanceCapabilities === undefined) return { modes, distance: null }
+  const { min, max, step } = distanceCapabilities
+  if (min === undefined || max === undefined) return { modes, distance: null }
+  const settings = video.getSettings()
+  const rawDistance = settings.focusDistance
+  // SAFETY: `Number.isFinite` rules out undefined/NaN, leaving only the
+  // finite number the spec defines for `focusDistance`.
+  const focusValue = Number.isFinite(rawDistance) ? (rawDistance as number) : min
+  const distance: ZoomRange = {
+    min,
+    max,
+    step: step && step > 0 ? step : (max - min) / 20,
+    value: focusValue
+  }
+  return { modes, distance }
+};
+
+/**
+ * Best-effort tap-to-focus: triggers a single-shot AF cycle, then restores
+ * continuous focus when the device supports it. Returns false when the
+ * device exposes no focusMode control (iOS Safari typically).
+ */
+export const triggerAutoFocus = async (stream: MediaStream): Promise<boolean> => {
+  const video = _videoTrack(stream)
+  if (video === undefined) return false
+  const { modes } = getFocusInfo(stream)
+  if (modes.length === 0) return false
+  if (!modes.includes("single-shot")) return false
+  try {
+    await video.applyConstraints({ advanced: [{ focusMode: "single-shot" }] })
+  } catch {
+    return false
+  }
+  if (modes.includes("continuous")) {
+    setTimeout(() => {
+      video.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {})
+    }, 1500)
+  }
+  return true
+};
 
 /** Captures the current video frame as an ImageBitmap. */
 export const captureFrame = (video: HTMLVideoElement): Promise<ImageBitmap> => {
@@ -46,4 +232,4 @@ export const captureFrame = (video: HTMLVideoElement): Promise<ImageBitmap> => {
     return createImageBitmap(video)
   }
   return Promise.reject(new Error("createImageBitmap is not supported"))
-}
+};

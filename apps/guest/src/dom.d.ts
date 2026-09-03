@@ -1,11 +1,28 @@
 /// <reference lib="dom" />
 
 /**
- * `torch` is a non-standard but widely-supported video constraint on mobile
- * browsers; the DOM `MediaTrackConstraintSet` type omits it.
+ * Non-standard but widely-supported video constraints on mobile browsers.
+ * The DOM `MediaTrackConstraintSet` type omits several of these.
  */
 interface MediaTrackConstraintSet {
   torch?: boolean
+  zoom?: number
+  focusMode?: string
+  focusDistance?: number
+  exposureMode?: string
+}
+
+interface MediaTrackCapabilities {
+  torch?: boolean
+  zoom?: MediaSettingsRange
+  focusMode?: ReadonlyArray<string>
+  focusDistance?: MediaSettingsRange
+  exposureMode?: ReadonlyArray<string>
+}
+
+interface MediaTrackSettings {
+  zoom?: number
+  focusDistance?: number
 }
 
 /** Chromium's PWA install prompt, not part of the standard DOM lib. */
