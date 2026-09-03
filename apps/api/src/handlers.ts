@@ -147,9 +147,12 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const now = yield* _nowDate
         const camera = yield* repo.createCamera(
           event.id,
+          payload.guestId,
           Option.fromNullishOr(payload.guestName),
           now
-        )
+        ).pipe(Effect.catchTags({
+          CameraLimitReached: () => Effect.fail(new HttpApiError.Conflict())
+        }))
         return new CameraCreateResult({
           cameraId: camera.id,
           usedCount: camera.usedCount,
@@ -379,6 +382,27 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
             ? new PhotoCursor({ uploadedAt: last.uploadedAt, id: last.id })
             : undefined
         })
+      })
+    )
+    .handle("listEventCameras", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        return yield* repo.listEventCameras(event.id, ownerId)
+      })
+    )
+    .handle("resetCamera", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const now = yield* _nowDate
+        return yield* repo.resetCamera(event.id, params.cameraId, now).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
       })
     )
     .handle("getHostPhoto", ({ params, request }) =>

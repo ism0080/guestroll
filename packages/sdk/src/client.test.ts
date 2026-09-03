@@ -65,7 +65,7 @@ describe("guest client", () => {
 
   test("creates a camera and uploads a photo", async () => {
     const client = await createGuestClient({ baseUrl: startMock() })
-    const camera = await client.createCamera(LiveSlug, "Sam")
+    const camera = await client.createCamera(LiveSlug, "guest-1", "Sam")
     expect(camera.cameraId).toMatch("camera-1")
 
     const photo = await client.uploadPhoto({

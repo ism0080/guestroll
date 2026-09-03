@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 import {
+  CameraId,
   EventCreate,
   EventRename,
   EventSlug,
@@ -11,6 +12,7 @@ import type {
   DownloadStatus,
   EventPublic,
   EventStatus,
+  HostCamera,
   HostPhotoPage,
   HostSession
 } from "@guestroll/contracts"
@@ -40,6 +42,8 @@ export interface HostClient {
   readonly duplicateEvent: (slug: string) => Promise<EventPublic>
   readonly deleteEvent: (slug: string) => Promise<void>
   readonly listEventPhotos: (slug: string, query?: PhotoPageQuery) => Promise<HostPhotoPage>
+  readonly listEventCameras: (slug: string) => Promise<ReadonlyArray<HostCamera>>
+  readonly resetCamera: (slug: string, cameraId: string) => Promise<HostCamera>
   readonly requestDownload: (slug: string) => Promise<DownloadStatus>
   readonly getDownloadStatus: (slug: string) => Promise<DownloadStatus>
 }
@@ -85,6 +89,17 @@ export const createHostClient = (options: ApiClientOptions): Promise<HostClient>
           cursorId: query.cursorId === undefined
             ? undefined
             : parse(PhotoId, query.cursorId, "Invalid photo cursor")
+        }
+      })),
+    listEventCameras: (slug) =>
+      runApi(client.host.listEventCameras({
+        params: { slug: parse(EventSlug, slug, "Invalid event link") }
+      })),
+    resetCamera: (slug, cameraId) =>
+      runApi(client.host.resetCamera({
+        params: {
+          slug: parse(EventSlug, slug, "Invalid event link"),
+          cameraId: parse(CameraId, cameraId, "Invalid camera id")
         }
       })),
     requestDownload: (slug) =>

@@ -77,7 +77,9 @@ export interface DoneScreenProps {
   readonly title: string
   readonly count: number
   readonly pending?: number
-  readonly onRetake: () => void
+  readonly starting?: boolean
+  readonly error?: string | null
+  readonly onStartNewRoll: () => void
 }
 
 export const DoneScreen = (props: DoneScreenProps): JSX.Element => (
@@ -105,8 +107,18 @@ export const DoneScreen = (props: DoneScreenProps): JSX.Element => (
           <p class="text-base-content/70">
             Thanks for being part of the day — the couple will see every frame you captured.
           </p>
-          <button type="button" class="btn btn-outline btn-lg mt-2" onClick={props.onRetake}>
-            Take a new camera
+          <Show when={props.error !== null && props.error !== undefined}>
+            <div class="alert alert-warning">
+              <span>{props.error}</span>
+            </div>
+          </Show>
+          <button
+            type="button"
+            class="btn btn-primary btn-lg mt-2"
+            disabled={props.starting}
+            onClick={props.onStartNewRoll}
+          >
+            {props.starting ? <span class="loading loading-spinner" /> : "Start a new roll"}
           </button>
         </div>
       </div>

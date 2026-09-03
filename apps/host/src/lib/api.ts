@@ -9,6 +9,7 @@ import type {
   DownloadStatus,
   EventPublic,
   EventStatus,
+  HostCamera,
   HostPhoto,
   HostPhotoPage,
   HostSession
@@ -62,6 +63,17 @@ export const deleteEvent = (slug: string): Promise<void> =>
 
 export const listEventPhotos = (slug: string, query?: PhotoPageQuery): Promise<HostPhotoPage> =>
   hostClient().then((client) => client.listEventPhotos(slug, query))
+
+/** Every guest roll on the event (name, shots taken, reset status). */
+export const listEventCameras = (slug: string): Promise<ReadonlyArray<HostCamera>> =>
+  hostClient().then((client) => client.listEventCameras(slug))
+
+/**
+ * Resets a guest's roll so that device can start a new set of photos for the
+ * event. The photos already taken stay in the event.
+ */
+export const resetCamera = (slug: string, cameraId: string): Promise<HostCamera> =>
+  hostClient().then((client) => client.resetCamera(slug, cameraId))
 
 /** Requests the "download all" ZIP build and returns the current status. */
 export const requestDownload = (slug: string): Promise<DownloadStatus> =>

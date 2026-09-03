@@ -7,12 +7,14 @@ import * as HttpApiSchema from "effect/unstable/httpapi/HttpApiSchema"
 import {
   CameraCreate,
   CameraCreateResult,
+  CameraId,
   DownloadStatus,
   EventCreate,
   EventPublic,
   EventRename,
   EventSlug,
   EventStatusUpdate,
+  HostCamera,
   HostLogin,
   HostPhotoPage,
   HostSession,
@@ -23,6 +25,7 @@ import {
 
 const SlugParams = Schema.Struct({ slug: EventSlug })
 const PhotoParams = Schema.Struct({ slug: EventSlug, photoId: PhotoId })
+const CameraParams = Schema.Struct({ slug: EventSlug, cameraId: CameraId })
 const PhotoPageQuery = Schema.Struct({
   limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
   cursorUploadedAt: Schema.optional(Schema.DateFromString),
@@ -106,7 +109,13 @@ export const CreateCamera = HttpApiEndpoint.post(
     params: SlugParams,
     payload: CameraCreate,
     success: CameraCreateResult,
-    error: [HttpApiError.NotFound, HttpApiError.Forbidden, HttpApiError.Unauthorized, RateLimitExceeded]
+    error: [
+      HttpApiError.NotFound,
+      HttpApiError.Forbidden,
+      HttpApiError.Unauthorized,
+      HttpApiError.Conflict,
+      RateLimitExceeded
+    ]
   }
 )
 
@@ -141,6 +150,26 @@ export const ListEventPhotos = HttpApiEndpoint.get(
     query: PhotoPageQuery,
     success: HostPhotoPage,
     error: [HttpApiError.NotFound, HttpApiError.BadRequest, HttpApiError.Unauthorized]
+  }
+)
+
+export const ListEventCameras = HttpApiEndpoint.get(
+  "listEventCameras",
+  "/events/:slug/cameras",
+  {
+    params: SlugParams,
+    success: Schema.Array(HostCamera),
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
+export const ResetCamera = HttpApiEndpoint.post(
+  "resetCamera",
+  "/events/:slug/cameras/:cameraId/reset",
+  {
+    params: CameraParams,
+    success: HostCamera,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
   }
 )
 
@@ -199,6 +228,8 @@ export class HostGroup extends HttpApiGroup.make("host")
   .add(DuplicateEvent)
   .add(DeleteEvent)
   .add(ListEventPhotos)
+  .add(ListEventCameras)
+  .add(ResetCamera)
   .add(GetHostPhoto)
   .add(RequestDownload)
   .add(GetDownloadStatus)

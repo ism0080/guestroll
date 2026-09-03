@@ -1,13 +1,15 @@
 import { Title } from "@solidjs/meta"
 import { Navigate, useNavigate, useParams } from "@solidjs/router"
 import { createMutation, createQuery, useQueryClient } from "@tanstack/solid-query"
-import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
-import type { EventStatus, HostPhoto } from "@guestroll/contracts"
+import type { EventStatus, HostCamera, HostPhoto } from "@guestroll/contracts"
 import {
   fetchAllEventPhotos,
   guestLink,
+  listEventCameras,
   loadSession,
+  resetCamera,
   SESSION_QUERY_KEY,
   updateEventStatus
 } from "~/lib/api"
@@ -61,11 +63,29 @@ const EventDetail = (): JSX.Element => {
     }
   }))
 
+  const camerasQuery = createQuery(() => ({
+    queryKey: ["host", "cameras", slug],
+    queryFn: () => listEventCameras(slug),
+    enabled: sessionQuery.data?.authenticated === true && event() !== undefined,
+    retry: false,
+    refetchOnWindowFocus: true
+  }))
+
+  const resetMutation = createMutation(() => ({
+    mutationFn: (cameraId: string) => resetCamera(slug, cameraId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["host", "cameras", slug] })
+    }
+  }))
+
   const copyLink = (): void => {
     navigator.clipboard.writeText(guestLink(slug)).catch(() => {})
     setCopied(true)
     window.setTimeout(() => setCopied(false), 2000)
   }
+
+  const rollStatus = (roll: HostCamera): "in-progress" | "full" | "reset" =>
+    roll.resetAt !== undefined ? "reset" : roll.usedCount >= roll.photoLimit ? "full" : "in-progress"
 
   return (
     <>
@@ -176,6 +196,56 @@ const EventDetail = (): JSX.Element => {
               </button>
             </div>
           </div>
+
+          <Show when={(camerasQuery.data?.length ?? 0) > 0}>
+            <div class="card mb-6 bg-base-100 shadow-xl">
+              <div class="card-body">
+                <div class="flex items-center justify-between gap-3">
+                  <h2 class="card-title text-lg">Guest rolls</h2>
+                  <span class="badge badge-ghost">{camerasQuery.data?.length}</span>
+                </div>
+                <p class="text-sm text-base-content/60">
+                  Reset a roll to let that device start a new set of photos. Their photos
+                  stay in the event.
+                </p>
+                <ul class="divide-y divide-base-300">
+                  <For each={camerasQuery.data}>
+                    {(roll) => (
+                      <li class="flex items-center justify-between gap-4 py-2">
+                        <div class="min-w-0">
+                          <p class="truncate font-medium">{roll.guestName ?? "Anonymous guest"}</p>
+                          <p class="text-sm text-base-content/60">
+                            {roll.usedCount}/{roll.photoLimit} photos
+                          </p>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                          <Show when={rollStatus(roll) === "in-progress"}>
+                            <span class="badge badge-success">In progress</span>
+                          </Show>
+                          <Show when={rollStatus(roll) === "full"}>
+                            <span class="badge badge-warning">Full</span>
+                          </Show>
+                          <Show when={rollStatus(roll) === "reset"}>
+                            <span class="badge badge-ghost">Reset</span>
+                          </Show>
+                          <Show when={roll.resetAt === undefined}>
+                            <button
+                              type="button"
+                              class="btn btn-outline btn-sm"
+                              disabled={resetMutation.isPending}
+                              onClick={() => resetMutation.mutate(roll.id)}
+                            >
+                              Reset
+                            </button>
+                          </Show>
+                        </div>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </div>
+            </div>
+          </Show>
 
           <Show when={photosQuery.isError}>
             <div class="alert alert-warning mb-4">

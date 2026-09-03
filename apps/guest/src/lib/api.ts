@@ -43,9 +43,13 @@ export interface UploadPhotoInput {
 export const getEvent = (slug: string): Promise<EventPublic> =>
   guestClient().then((client) => client.getEvent(slug))
 
-/** Creates a guest camera for the event. Optional guest name. */
-export const createCamera = (slug: string, guestName?: string): Promise<CameraCreateResult> =>
-  guestClient().then((client) => client.createCamera(slug, guestName))
+/**
+ * Creates (or resumes) the guest's camera for the event. `guestId` ties the
+ * device to a single roll per event; the API rejects with 409 once that roll
+ * is full, so a guest can't start a new set of photos.
+ */
+export const createCamera = (slug: string, guestId: string, guestName?: string): Promise<CameraCreateResult> =>
+  guestClient().then((client) => client.createCamera(slug, guestId, guestName))
 
 /**
  * Uploads one compressed photo. `uploadId` is a client UUID that makes

@@ -35,6 +35,15 @@ export class HostPhoto extends Schema.Class<HostPhoto>("HostPhoto")({
   uploadedAt: Schema.DateFromString
 }) {}
 
+export class HostCamera extends Schema.Class<HostCamera>("HostCamera")({
+  id: CameraId,
+  guestName: Schema.optional(Schema.NonEmptyString.check(Schema.isMaxLength(80))),
+  usedCount: UsedCount,
+  photoLimit: Schema.Int,
+  resetAt: Schema.optional(Schema.DateFromString),
+  createdAt: Schema.DateFromString
+}) {}
+
 export class HostLogin extends Schema.Class<HostLogin>("HostLogin")({
   passcode: Schema.NonEmptyString.check(Schema.isMaxLength(512))
 }) {}

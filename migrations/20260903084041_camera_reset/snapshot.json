@@ -1,0 +1,581 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "77a60af3-fc79-45a6-abbf-6b91b851f296",
+  "prevIds": [
+    "3e229315-31b3-4194-9d1d-5f24231d77fa"
+  ],
+  "ddl": [
+    {
+      "name": "cameras",
+      "entityType": "tables"
+    },
+    {
+      "name": "downloads",
+      "entityType": "tables"
+    },
+    {
+      "name": "events",
+      "entityType": "tables"
+    },
+    {
+      "name": "photos",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "eventId",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "guestId",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "guestName",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "usedCount",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "resetAt",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "table": "cameras"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "eventId",
+      "entityType": "columns",
+      "table": "downloads"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "downloads"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "objectKey",
+      "entityType": "columns",
+      "table": "downloads"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "photoCount",
+      "entityType": "columns",
+      "table": "downloads"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "size",
+      "entityType": "columns",
+      "table": "downloads"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "table": "downloads"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ownerId",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "title",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "coverKey",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "filterPack",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "photoLimit",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "uploadId",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "eventId",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cameraId",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "objectKey",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "thumbKey",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'pending'",
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "contentDigest",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "takenAt",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "uploadedAt",
+      "entityType": "columns",
+      "table": "photos"
+    },
+    {
+      "columns": [
+        "eventId"
+      ],
+      "tableTo": "events",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_cameras_eventId_events_id_fk",
+      "entityType": "fks",
+      "table": "cameras"
+    },
+    {
+      "columns": [
+        "eventId"
+      ],
+      "tableTo": "events",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_downloads_eventId_events_id_fk",
+      "entityType": "fks",
+      "table": "downloads"
+    },
+    {
+      "columns": [
+        "cameraId",
+        "eventId"
+      ],
+      "tableTo": "cameras",
+      "columnsTo": [
+        "id",
+        "eventId"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_photos_cameraId_eventId_cameras_id_eventId_fk",
+      "entityType": "fks",
+      "table": "photos"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "cameras_pk",
+      "table": "cameras",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "eventId"
+      ],
+      "nameExplicit": false,
+      "name": "downloads_pk",
+      "table": "downloads",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "events_pk",
+      "table": "events",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "photos_pk",
+      "table": "photos",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "eventId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "cameras_event_id_idx",
+      "entityType": "indexes",
+      "table": "cameras"
+    },
+    {
+      "columns": [
+        {
+          "value": "slug",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "events_slug_unique",
+      "entityType": "indexes",
+      "table": "events"
+    },
+    {
+      "columns": [
+        {
+          "value": "ownerId",
+          "isExpression": false
+        },
+        {
+          "value": "createdAt",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "events_owner_id_created_at_idx",
+      "entityType": "indexes",
+      "table": "events"
+    },
+    {
+      "columns": [
+        {
+          "value": "eventId",
+          "isExpression": false
+        },
+        {
+          "value": "uploadedAt",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "photos_event_id_uploaded_at_id_idx",
+      "entityType": "indexes",
+      "table": "photos"
+    },
+    {
+      "columns": [
+        {
+          "value": "cameraId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "photos_camera_id_idx",
+      "entityType": "indexes",
+      "table": "photos"
+    },
+    {
+      "columns": [
+        "id",
+        "eventId"
+      ],
+      "nameExplicit": true,
+      "name": "cameras_id_event_id_unique",
+      "entityType": "uniques",
+      "table": "cameras"
+    },
+    {
+      "columns": [
+        "cameraId",
+        "uploadId"
+      ],
+      "nameExplicit": true,
+      "name": "photos_camera_upload_unique",
+      "entityType": "uniques",
+      "table": "photos"
+    },
+    {
+      "columns": [
+        "objectKey"
+      ],
+      "nameExplicit": false,
+      "name": "photos_objectKey_unique",
+      "entityType": "uniques",
+      "table": "photos"
+    },
+    {
+      "value": "\"usedCount\" >= 0",
+      "name": "cameras_used_count_non_negative",
+      "entityType": "checks",
+      "table": "cameras"
+    },
+    {
+      "value": "\"status\" IN ('building', 'ready', 'error')",
+      "name": "downloads_status_valid",
+      "entityType": "checks",
+      "table": "downloads"
+    },
+    {
+      "value": "\"photoLimit\" > 0",
+      "name": "events_photo_limit_positive",
+      "entityType": "checks",
+      "table": "events"
+    },
+    {
+      "value": "\"status\" IN ('draft', 'live')",
+      "name": "events_status_valid",
+      "entityType": "checks",
+      "table": "events"
+    },
+    {
+      "value": "\"status\" IN ('pending', 'uploaded')",
+      "name": "photos_status_valid",
+      "entityType": "checks",
+      "table": "photos"
+    }
+  ],
+  "renames": []
+}

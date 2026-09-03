@@ -5,7 +5,8 @@ import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { ApiError, createCamera, getEvent, randomUUID } from "~/lib/api"
 import { compressCanvas, loadGalleryBitmap, renderFrame } from "~/lib/image"
-import { clearCameraSession, loadCameraSession, saveCameraSession } from "~/lib/session"
+import { deviceGuestId } from "~/lib/guestId"
+import { loadCameraSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
 import { onWorkerMessage, readQueueState, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
 import type { WorkerMessage } from "~/lib/uploadQueue"
@@ -54,6 +55,7 @@ const GuestRoute = (): JSX.Element => {
   const [review, setReview] = createSignal<ReviewPhoto | null>(null)
   const [fatalError, setFatalError] = createSignal<ErrorKind | null>(null)
   const [forceDone, setForceDone] = createSignal(false)
+  const [doneError, setDoneError] = createSignal<string | null>(null)
   let fileInput: HTMLInputElement | undefined
 
   const storedFull = createMemo<boolean>(() => {
@@ -64,7 +66,6 @@ const GuestRoute = (): JSX.Element => {
   const eventQuery = createQuery(() => ({
     queryKey: ["event", slug],
     queryFn: () => getEvent(slug),
-    enabled: !storedFull(),
     retry: (failureCount, error) => {
       if (failureCount >= 3) return false
       if (!(error instanceof ApiError)) return true
@@ -104,19 +105,21 @@ const GuestRoute = (): JSX.Element => {
 
   const createCameraMutation = createMutation(() => ({
     mutationFn: async () => {
-      const loaded = eventQuery.data
-      if (loaded === undefined) throw new ApiError("network", "Event not loaded")
       const name = guestName().trim()
-      return createCamera(loaded.slug, name === "" ? undefined : name)
+      return createCamera(slug, deviceGuestId(), name === "" ? undefined : name)
     },
     onSuccess: (result) => {
-      const loaded = eventQuery.data
-      if (loaded === undefined) return
+      setDoneError(null)
       const session = makeSession(result.cameraId, result.usedCount, result.photoLimit)
-      saveCameraSession(loaded.slug, session)
+      saveCameraSession(slug, session)
       setCamera(session)
     },
     onError: (error) => {
+      if (error instanceof ApiError && error.kind === "conflict") {
+        setForceDone(true)
+        setDoneError("This roll is already full. Check with the hosts before starting another.")
+        return
+      }
       setFatalError(error instanceof ApiError ? _kindFor(error) : "unknown")
     }
   }))
@@ -250,16 +253,6 @@ const GuestRoute = (): JSX.Element => {
     }
   }
 
-  const handleRetakeCamera = (): void => {
-    clearCameraSession(slug)
-    setCamera(null)
-    setReview(null)
-    setUploadError(null)
-    setGuestName("")
-    setForceDone(false)
-    setFatalError(null)
-  }
-
   return (
     <>
       <Show when={eventQuery.data !== undefined}>
@@ -344,7 +337,9 @@ const GuestRoute = (): JSX.Element => {
           title={eventQuery.data?.title ?? "the couple"}
           count={doneCount()}
           pending={pendingCount()}
-          onRetake={handleRetakeCamera}
+          starting={createCameraMutation.isPending}
+          error={doneError()}
+          onStartNewRoll={() => createCameraMutation.mutate()}
         />
       </Show>
 

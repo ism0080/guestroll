@@ -24,8 +24,10 @@ export const cameras = sqliteTable("cameras", {
   eventId: text("eventId")
     .notNull()
     .references(() => events.id),
+  guestId: text("guestId"),
   guestName: text("guestName"),
   usedCount: integer("usedCount").notNull().default(0),
+  resetAt: text("resetAt"),
   createdAt: text("createdAt").notNull()
 }, (table) => [
   index("cameras_event_id_idx").on(table.eventId),

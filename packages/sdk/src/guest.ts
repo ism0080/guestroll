@@ -16,8 +16,13 @@ export interface UploadPhotoInput {
 export interface GuestClient {
   /** Fetches the public event card. 404 also covers draft (not-yet-live) events. */
   readonly getEvent: (slug: string) => Promise<EventPublic>
-  /** Creates a guest camera for the event. Optional guest name. */
-  readonly createCamera: (slug: string, guestName?: string) => Promise<CameraCreateResult>
+  /**
+   * Creates (or resumes) the guest's camera for the event. `guestId` is the
+   * per-device identifier that ties the guest to a single roll per event.
+   * Optional guest name. Rejects with `ApiError` kind `conflict` when the
+   * device already used up its roll.
+   */
+  readonly createCamera: (slug: string, guestId: string, guestName?: string) => Promise<CameraCreateResult>
   /**
    * Uploads one compressed photo. `uploadId` is a client UUID that makes
    * retries idempotent per camera; `takenAt` is when the shutter fired.
@@ -31,13 +36,13 @@ export const createGuestClient = (options: ApiClientOptions): Promise<GuestClien
       runApi(client.guest.getEvent({
         params: { slug: parse(EventSlug, slug, "Invalid event link") }
       })),
-    createCamera: (slug, guestName) =>
+    createCamera: (slug, guestId, guestName) =>
       runApi(client.guest.createCamera({
         params: { slug: parse(EventSlug, slug, "Invalid event link") },
         payload: parse(
           CameraCreate,
-          guestName === undefined ? {} : { guestName },
-          "Invalid guest name"
+          guestName === undefined ? { guestId } : { guestId, guestName },
+          "Invalid guest camera request"
         )
       })),
     uploadPhoto: ({ slug, cameraId, takenAt, uploadId, file }) => {

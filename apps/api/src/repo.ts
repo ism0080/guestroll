@@ -10,6 +10,8 @@ import {
   EventSlug,
   EventStatus,
   FilterPack,
+  GuestId,
+  HostCamera,
   ObjectKey,
   OwnerId,
   Photo,
@@ -36,6 +38,11 @@ export class CameraNotFound extends Schema.TaggedError<CameraNotFound>()(
 
 export class PhotoLimitReached extends Schema.TaggedError<PhotoLimitReached>()(
   "PhotoLimitReached",
+  {}
+) {}
+
+export class CameraLimitReached extends Schema.TaggedError<CameraLimitReached>()(
+  "CameraLimitReached",
   {}
 ) {}
 
@@ -204,34 +211,48 @@ export const updateEventTitle = (
     return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
   })
 
+interface CameraRow {
+  readonly id: string
+  readonly eventId: string
+  readonly guestName: string | null
+  readonly usedCount: number
+  readonly createdAt: string
+}
+
+const _toCamera = (row: CameraRow): Camera =>
+  new Camera({
+    id: CameraId.make(row.id),
+    eventId: EventId.make(row.eventId),
+    guestName: row.guestName ?? undefined,
+    usedCount: row.usedCount,
+    createdAt: new Date(row.createdAt)
+  })
+
 export const getCamera = (id: CameraId): Effect.Effect<Option.Option<Camera>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    const rows = yield* _run(client<{
-      readonly id: string
-      readonly eventId: string
-      readonly guestName: string | null
-      readonly usedCount: number
-      readonly createdAt: string
-    }>`
+    const rows = yield* _run(client<CameraRow>`
       SELECT id, eventId, guestName, usedCount, createdAt
       FROM cameras WHERE id = ${id}`)
-    return Option.map(Option.fromNullishOr(rows[0]), (row) =>
-      new Camera({
-        id: CameraId.make(row.id),
-        eventId: EventId.make(row.eventId),
-        guestName: row.guestName ?? undefined,
-        usedCount: row.usedCount,
-        createdAt: new Date(row.createdAt)
-      })
-    )
+    return Option.map(Option.fromNullishOr(rows[0]), _toCamera)
   })
 
+/**
+ * Creates the guest's camera for an event, or resumes their existing active
+ * roll. A guest (identified by the per-device `guestId`) has at most one
+ * active camera per event: creating again while one exists returns it (so a
+ * reload resumes the same roll), and an active roll that is full refuses a
+ * new one with `CameraLimitReached`. A host reset (`resetCamera`) marks the
+ * roll as superseded, after which the next `createCamera` starts a fresh
+ * roll. The `INSERT … WHERE NOT EXISTS (active roll)` guard keeps concurrent
+ * creates race-safe.
+ */
 export const createCamera = (
   eventId: EventId,
+  guestId: GuestId,
   guestName: Option.Option<string>,
   now: Date
-): Effect.Effect<Camera, never, Sql | import("./env.ts").WorkerEnv> =>
+): Effect.Effect<Camera, CameraLimitReached, Sql | import("./env.ts").WorkerEnv> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
     const id = yield* randomId
@@ -242,10 +263,81 @@ export const createCamera = (
       usedCount: 0,
       createdAt: now
     })
-    yield* _run(client`
-      INSERT INTO cameras (id, eventId, guestName, usedCount, createdAt)
-      VALUES (${camera.id}, ${camera.eventId}, ${Option.getOrNull(guestName)}, ${camera.usedCount}, ${camera.createdAt.toISOString()})`)
-    return camera
+    const inserted = yield* _run(client<{ readonly id: string }>`
+      INSERT INTO cameras (id, eventId, guestId, guestName, usedCount, createdAt)
+      SELECT ${camera.id}, ${camera.eventId}, ${guestId}, ${Option.getOrNull(guestName)}, ${camera.usedCount}, ${camera.createdAt.toISOString()}
+      WHERE NOT EXISTS (
+        SELECT 1 FROM cameras WHERE eventId = ${eventId} AND guestId = ${guestId} AND resetAt IS NULL
+      )
+      RETURNING id AS id`)
+    if (inserted[0] !== undefined) return camera
+    const rows = yield* _run(client<CameraRow & { readonly photoLimit: number }>`
+      SELECT c.id, c.eventId, c.guestName, c.usedCount, c.createdAt, e.photoLimit
+      FROM cameras c JOIN events e ON e.id = c.eventId
+      WHERE c.eventId = ${eventId} AND c.guestId = ${guestId} AND c.resetAt IS NULL
+      ORDER BY c.createdAt DESC, c.id DESC LIMIT 1`)
+    const row = Option.fromNullishOr(rows[0])
+    if (Option.isNone(row)) return yield* Effect.die("Guest camera claim lost after guarded insert")
+    if (row.value.usedCount >= row.value.photoLimit) return yield* new CameraLimitReached()
+    return _toCamera(row.value)
+  })
+
+interface HostCameraRow {
+  readonly id: string
+  readonly guestName: string | null
+  readonly usedCount: number
+  readonly photoLimit: number
+  readonly resetAt: string | null
+  readonly createdAt: string
+}
+
+const _toHostCamera = (row: HostCameraRow): HostCamera =>
+  new HostCamera({
+    id: CameraId.make(row.id),
+    guestName: row.guestName ?? undefined,
+    usedCount: row.usedCount,
+    photoLimit: row.photoLimit,
+    resetAt: row.resetAt === null ? undefined : new Date(row.resetAt),
+    createdAt: new Date(row.createdAt)
+  })
+
+/** Every guest roll on an event, newest first, for the host dashboard. */
+export const listEventCameras = (
+  eventId: EventId,
+  ownerId: OwnerId
+): Effect.Effect<ReadonlyArray<HostCamera>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<HostCameraRow>`
+      SELECT c.id, c.guestName, c.usedCount, e.photoLimit, c.resetAt, c.createdAt
+      FROM cameras c JOIN events e ON e.id = c.eventId
+      WHERE c.eventId = ${eventId} AND e.ownerId = ${ownerId}
+      ORDER BY c.createdAt DESC, c.id DESC`)
+    return rows.map(_toHostCamera)
+  })
+
+/**
+ * Marks a guest's roll as reset so their device can start a fresh roll. The
+ * camera (and the photos taken on it) stay in the event; only its active
+ * status is cleared. Returns `None` when the camera isn't part of the event.
+ */
+export const resetCamera = (
+  eventId: EventId,
+  cameraId: CameraId,
+  now: Date
+): Effect.Effect<Option.Option<HostCamera>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const updated = yield* _run(client<{ readonly id: string }>`
+      UPDATE cameras SET resetAt = ${now.toISOString()}
+      WHERE id = ${cameraId} AND eventId = ${eventId}
+      RETURNING id AS id`)
+    if (updated[0] === undefined) return Option.none()
+    const rows = yield* _run(client<HostCameraRow>`
+      SELECT c.id, c.guestName, c.usedCount, e.photoLimit, c.resetAt, c.createdAt
+      FROM cameras c JOIN events e ON e.id = c.eventId
+      WHERE c.id = ${cameraId} AND c.eventId = ${eventId}`)
+    return Option.map(Option.fromNullishOr(rows[0]), _toHostCamera)
   })
 
 export interface ClaimedPhoto {

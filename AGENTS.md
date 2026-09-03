@@ -31,7 +31,7 @@ not own any Cloudflare/Worker runtime wiring.
   `migrations` prop, applied on deploy). The `apps/api/` repo SQL assumes the
   migrated table shape (columns: `id`, `ownerId`, `slug`, `title`, `coverKey`,
   `filterPack`, `photoLimit`, `status`, `createdAt`, `updatedAt`; `cameras`:
-  `id`, `eventId`, `guestName`, `usedCount`, `createdAt`; `photos`: `id`,
+  `id`, `eventId`, `guestId`, `guestName`, `usedCount`, `resetAt`, `createdAt`; `photos`: `id`,
   `uploadId`, `eventId`, `cameraId`, `objectKey`, `thumbKey`, `takenAt`,
   `uploadedAt`).
 - The Effect HTTP runtime glue: `Etag.layer`, `HttpPlatform` (stub for

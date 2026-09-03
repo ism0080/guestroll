@@ -13,6 +13,9 @@ export type EventId = typeof EventId.Type
 export const CameraId = _id("CameraId")
 export type CameraId = typeof CameraId.Type
 
+export const GuestId = _id("GuestId")
+export type GuestId = typeof GuestId.Type
+
 export const PhotoId = _id("PhotoId")
 export type PhotoId = typeof PhotoId.Type
 

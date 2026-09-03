@@ -17,6 +17,7 @@ describe("public input validation", () => {
       photoLimit: 12
     }))).toBe(true)
     expect(Option.isNone(Schema.decodeOption(CameraCreate)({
+      guestId: "guest-1",
       guestName: "x".repeat(81)
     }))).toBe(true)
     expect(Option.isNone(Schema.decodeOption(EventCreate)({
@@ -24,6 +25,11 @@ describe("public input validation", () => {
       filterPack: "film",
       photoLimit: 101
     }))).toBe(true)
+  })
+
+  test("requires a guest id to create a camera", () => {
+    expect(Option.isNone(Schema.decodeUnknownOption(CameraCreate)({}))).toBe(true)
+    expect(Option.isSome(Schema.decodeOption(CameraCreate)({ guestId: "guest-1" }))).toBe(true)
   })
 
   test("rejects blank and overlong rename titles", () => {
