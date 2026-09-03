@@ -219,7 +219,7 @@ const GuestRoute = (): JSX.Element => {
     try {
       const bitmap = await loadGalleryBitmap(file)
       const takenAt = new Date()
-      const canvas = renderFrame(bitmap, filterPack())
+      const canvas = renderFrame(bitmap)
       bitmap.close()
       setUploadError(null)
       await persistCanvas(canvas, takenAt)
@@ -231,7 +231,7 @@ const GuestRoute = (): JSX.Element => {
   const handleCapture = (bitmap: ImageBitmap): void => {
     try {
       const takenAt = new Date()
-      const canvas = renderFrame(bitmap, filterPack())
+      const canvas = renderFrame(bitmap)
       bitmap.close()
       setUploadError(null)
       persistCanvas(canvas, takenAt).catch(() => {})

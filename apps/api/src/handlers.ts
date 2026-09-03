@@ -54,6 +54,7 @@ export const photoToHost = (photo: Photo, guestName?: string): HostPhoto =>
     guestName,
     objectKey: photo.objectKey,
     thumbKey: photo.thumbKey,
+    filterPack: photo.filterPack,
     takenAt: photo.takenAt,
     uploadedAt: photo.uploadedAt
   })

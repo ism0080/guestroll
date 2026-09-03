@@ -32,6 +32,7 @@ export class HostPhoto extends Schema.Class<HostPhoto>("HostPhoto")({
   guestName: Schema.optional(Schema.NonEmptyString.check(Schema.isMaxLength(80))),
   objectKey: ObjectKey,
   thumbKey: ObjectKey,
+  filterPack: Schema.String.check(Schema.isMaxLength(64)),
   takenAt: Schema.DateFromString,
   uploadedAt: Schema.DateFromString
 }) {}

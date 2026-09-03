@@ -69,6 +69,7 @@ export class Photo extends Schema.Class<Photo>("Photo")({
   cameraId: CameraId,
   objectKey: ObjectKey,
   thumbKey: ObjectKey,
+  filterPack: FilterPack,
   takenAt: Schema.Date,
   uploadedAt: Schema.Date
 }) {}

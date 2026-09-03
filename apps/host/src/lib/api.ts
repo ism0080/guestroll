@@ -140,17 +140,29 @@ const _extensionForContentType = (contentType: string): string => {
 /**
  * Downloads a single photo's bytes via the host-only photo endpoint
  * (session cookie via `credentials: "include"`) and saves it with a
- * per-photo filename. On mobile the native share sheet is used so the
- * photo can be saved straight to the camera roll; elsewhere an anchor
- * download is used.
+ * per-photo filename. The archived bytes are originals; when a filter pack
+ * is passed the shared ImageData pipeline bakes it into the saved file so
+ * the download matches the filtered grid. On mobile the native share sheet
+ * is used so the photo can be saved straight to the camera roll; elsewhere
+ * an anchor download is used.
  */
-export const downloadSinglePhoto = async (slug: string, photoId: string): Promise<void> => {
+export const downloadSinglePhoto = async (
+  slug: string,
+  photoId: string,
+  filterPack?: string
+): Promise<void> => {
   const { saveBlob } = await import("./share.ts")
   const response = await fetch(photoImageUrl(slug, photoId), { credentials: "include" })
   if (!response.ok) throw new Error(`Photo download failed with status ${response.status}`)
-  const blob = await response.blob()
-  const filename = `${slug}-${photoId}.${_extensionForContentType(blob.type)}`
-  await saveBlob(blob, filename, { title: filename })
+  const original = await response.blob()
+  const filename = `${slug}-${photoId}${filterPack !== undefined && filterPack !== "none" ? "-filtered" : ""}.${_extensionForContentType(original.type)}`
+  if (filterPack === undefined || filterPack === "none") {
+    await saveBlob(original, filename, { title: filename })
+    return
+  }
+  const { bakeBlobFilter } = await import("./filter-export.ts")
+  const baked = await bakeBlobFilter(original, filterPack)
+  await saveBlob(baked, filename, { title: filename })
 }
 
 /** Guest-facing link for an event (QR target / share). */

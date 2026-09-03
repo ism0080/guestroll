@@ -5,6 +5,7 @@ import { strFromU8, unzipSync } from "fflate"
 import {
   CameraId,
   EventId,
+  FilterPack,
   ObjectKey,
   Photo,
   PhotoId,
@@ -102,6 +103,7 @@ const _makePhoto = (id: string, objectKey: string): Photo =>
     cameraId: CameraId.make("camera-1"),
     objectKey: ObjectKey.make(objectKey),
     thumbKey: ObjectKey.make(objectKey),
+    filterPack: FilterPack.make("film"),
     takenAt: new Date("2026-05-04T14:30:00.000Z"),
     uploadedAt: new Date("2026-05-04T14:31:00.000Z")
   })
@@ -134,11 +136,13 @@ describe("ZIP download build", () => {
 
     const unzipped = unzipSync(zipBytes!)
     const entries = Object.entries(unzipped)
-    expect(entries.length).toBe(3)
+    expect(entries.length).toBe(4)
+    expect(entries.some(([name]) => name === "filters.json")).toBe(true)
     expect(entries.some(([name]) => name.endsWith(".jpg"))).toBe(true)
     expect(entries.some(([name]) => name.endsWith(".png"))).toBe(true)
     expect(entries.some(([name]) => name.endsWith(".webp"))).toBe(true)
-    for (const [, bytes] of entries) {
+    for (const [name, bytes] of entries) {
+      if (name === "filters.json") continue
       const content = strFromU8(bytes)
       expect(Object.values(photoBytes)).toContain(content)
     }

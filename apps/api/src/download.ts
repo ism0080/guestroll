@@ -24,7 +24,9 @@ export interface ZipBuildResult {
 /**
  * Builds the event's "download all" ZIP and stores it in R2. Photo bytes are
  * stored uncompressed (`ZipPassThrough`) — JPEG/WebP/PNG do not deflate, and
- * store mode avoids burning CPU on the build.
+ * store mode avoids burning CPU on the build. Originals are archived as-is;
+ * the per-photo `filterPack` intent travels in `filters.json` so exports stay
+ * reproducible even though the Worker has no image codec to bake pixels.
  */
 export const buildEventZip = (
   eventId: EventId,
@@ -65,6 +67,17 @@ export const buildEventZip = (
               file.push(object.bytes)
               file.push(new Uint8Array(0), true)
             }
+            const manifest = new ZipPassThrough("filters.json")
+            zip.add(manifest)
+            // Hand-rolled string-map encoding: photo ids and pack names are
+            // short token strings, so a minimal quote-escape suffices and
+            // keeps this Effect module off the global JSON API.
+            const escapeToken = (token: string): string =>
+              `"${token.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"")}"`
+            const manifestBody =
+              `{\n${photos.map((photo) => `  ${escapeToken(photo.id)}: ${escapeToken(photo.filterPack)}`).join(",\n")}\n}`
+            manifest.push(new TextEncoder().encode(manifestBody))
+            manifest.push(new Uint8Array(0), true)
             zip.end()
             controller.close()
           })().catch((error: Error) => controller.error(error))

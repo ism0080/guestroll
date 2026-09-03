@@ -1,5 +1,3 @@
-import { filterPackCss } from "@guestroll/contracts"
-
 const MAX_DIMENSION = 1920
 /** API cap is 2 MiB; leave headroom for multipart framing. */
 const MAX_UPLOAD_BYTES = 1.9 * 1024 * 1024
@@ -15,18 +13,19 @@ const _downscale = (bitmap: ImageBitmap) => {
 }
 
 /**
- * Draws a source frame onto a canvas with the event's filter pack applied,
- * downscaled to at most 1920px on the longest edge. Used for both the live
- * capture and camera-roll imports so every photo gets the same treatment.
+ * Draws a source frame onto a canvas, downscaled to at most 1920px on the
+ * longest edge. Uploads are intentionally originals: the event's filter pack
+ * is only a preview (viewfinder CSS) plus per-photo metadata rendered by the
+ * host. Baking here used `ctx.filter`, which older iOS Safari silently
+ * ignores — so finals arrived unfiltered while the viewfinder promised film.
  */
-export const renderFrame = (bitmap: ImageBitmap, filterPack: string): HTMLCanvasElement => {
+export const renderFrame = (bitmap: ImageBitmap): HTMLCanvasElement => {
   const { width, height } = _downscale(bitmap)
   const canvas = document.createElement("canvas")
   canvas.width = width
   canvas.height = height
   const context = canvas.getContext("2d")
   if (context === null) throw new Error("Canvas 2D context unavailable")
-  context.filter = filterPackCss(filterPack)
   context.drawImage(bitmap, 0, 0, width, height)
   return canvas
 }

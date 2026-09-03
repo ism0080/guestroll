@@ -42,6 +42,7 @@ export const photos = sqliteTable("photos", {
   cameraId: text("cameraId").notNull(),
   objectKey: text("objectKey").notNull().unique(),
   thumbKey: text("thumbKey").notNull(),
+  filterPack: text("filterPack").notNull().default("film"),
   status: text("status").notNull().default("pending"),
   contentDigest: text("contentDigest"),
   takenAt: text("takenAt").notNull(),

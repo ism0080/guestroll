@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js"
 import type { JSX } from "solid-js"
-import type { HostPhoto } from "@guestroll/contracts"
+import { filterPackCss, type HostPhoto } from "@guestroll/contracts"
 import { downloadSinglePhoto, photoImageUrl } from "~/lib/api"
 import { CloseIcon, DownloadIcon } from "./icons"
 
@@ -18,7 +18,7 @@ export const Lightbox = (props: LightboxProps): JSX.Element => {
     const photo = props.photo
     if (photo === null || downloading()) return
     setDownloading(true)
-    downloadSinglePhoto(props.slug, photo.id)
+    downloadSinglePhoto(props.slug, photo.id, photo.filterPack)
       .catch(() => {})
       .finally(() => setDownloading(false))
   }
@@ -46,6 +46,7 @@ export const Lightbox = (props: LightboxProps): JSX.Element => {
                 : "Full size guest photo"
             }
             crossorigin="use-credentials"
+            style={{ filter: props.photo !== null ? filterPackCss(props.photo.filterPack) : undefined }}
           />
           <figcaption class="flex items-center gap-3 text-sm text-white/80">
             <span>

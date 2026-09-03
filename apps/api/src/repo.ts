@@ -71,7 +71,7 @@ interface EventRow {
 }
 
 const eventColumns = `id, ownerId, slug, title, coverKey, filterPack, photoLimit, status, createdAt, updatedAt`
-const photoColumns = `id, uploadId, eventId, cameraId, objectKey, thumbKey, takenAt, uploadedAt`
+const photoColumns = `id, uploadId, eventId, cameraId, objectKey, thumbKey, filterPack, takenAt, uploadedAt`
 
 interface PhotoRow {
   readonly id: string
@@ -80,6 +80,7 @@ interface PhotoRow {
   readonly cameraId: string
   readonly objectKey: string
   readonly thumbKey: string
+  readonly filterPack: string | null
   readonly takenAt: string
   readonly uploadedAt: string
 }
@@ -111,6 +112,7 @@ const _toHostPhoto = (row: HostPhotoRow): HostPhoto =>
     guestName: row.guestName ?? undefined,
     objectKey: ObjectKey.make(row.objectKey),
     thumbKey: ObjectKey.make(row.thumbKey),
+    filterPack: row.filterPack ?? "film",
     takenAt: new Date(row.takenAt),
     uploadedAt: new Date(row.uploadedAt)
   })
@@ -386,8 +388,8 @@ export const claimPhotoUpload = (params: {
 }): Effect.Effect<ClaimedPhoto, CameraNotFound | EventNotLive | PhotoLimitReached | UploadContentMismatch, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    const cameraRows = yield* _run(client<{ readonly status: EventStatus; readonly photoLimit: number }>`
-      SELECT e.status, e.photoLimit FROM cameras c JOIN events e ON e.id = c.eventId
+    const cameraRows = yield* _run(client<{ readonly status: EventStatus; readonly photoLimit: number; readonly filterPack: string }>`
+      SELECT e.status, e.photoLimit, e.filterPack FROM cameras c JOIN events e ON e.id = c.eventId
       WHERE c.id = ${params.cameraId} AND c.eventId = ${params.eventId}`)
     const camera = cameraRows[0]
     if (camera === undefined) return yield* new CameraNotFound({ id: params.cameraId })
@@ -395,9 +397,9 @@ export const claimPhotoUpload = (params: {
 
     const objectKey = ObjectKey.make(`${params.eventId}-${params.cameraId}-${params.uploadId}`)
     yield* _run(client`
-      INSERT OR IGNORE INTO photos (id, uploadId, eventId, cameraId, objectKey, thumbKey, contentDigest, takenAt, uploadedAt, status)
+      INSERT OR IGNORE INTO photos (id, uploadId, eventId, cameraId, objectKey, thumbKey, filterPack, contentDigest, takenAt, uploadedAt, status)
       SELECT ${params.photoId}, ${params.uploadId}, ${params.eventId}, ${params.cameraId}, ${objectKey}, ${objectKey},
-        ${params.contentDigest}, ${params.takenAt.toISOString()}, ${params.uploadedAt.toISOString()}, 'pending'
+        ${camera.filterPack}, ${params.contentDigest}, ${params.takenAt.toISOString()}, ${params.uploadedAt.toISOString()}, 'pending'
       WHERE EXISTS (SELECT 1 FROM events WHERE id = ${params.eventId} AND status = 'live')
         AND (SELECT COUNT(*) FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId})
           < ${camera.photoLimit}
@@ -417,8 +419,8 @@ export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: 
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
     const rows = yield* _run(client<{
-      readonly id: string; readonly objectKey: string; readonly thumbKey: string; readonly takenAt: string; readonly uploadedAt: string; readonly status: "pending" | "uploaded"; readonly contentDigest: string | null
-    }>`SELECT id, objectKey, thumbKey, takenAt, uploadedAt, status, contentDigest FROM photos
+      readonly id: string; readonly objectKey: string; readonly thumbKey: string; readonly filterPack: string | null; readonly takenAt: string; readonly uploadedAt: string; readonly status: "pending" | "uploaded"; readonly contentDigest: string | null
+    }>`SELECT id, objectKey, thumbKey, filterPack, takenAt, uploadedAt, status, contentDigest FROM photos
       WHERE eventId = ${eventId} AND cameraId = ${cameraId} AND uploadId = ${uploadId}`)
     const row = rows[0]
     if (row === undefined) return Option.none()
@@ -429,7 +431,7 @@ export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: 
     const count = counts[0]
     if (count === undefined) return Option.none()
     return Option.some({ photo: new Photo({ id: PhotoId.make(row.id), uploadId, eventId, cameraId,
-      objectKey: ObjectKey.make(row.objectKey), thumbKey: ObjectKey.make(row.thumbKey), takenAt: new Date(row.takenAt), uploadedAt: new Date(row.uploadedAt) }),
+      objectKey: ObjectKey.make(row.objectKey), thumbKey: ObjectKey.make(row.thumbKey), filterPack: FilterPack.make(row.filterPack ?? "film"), takenAt: new Date(row.takenAt), uploadedAt: new Date(row.uploadedAt) }),
        photoLimit: count.photoLimit, usedCount: UsedCount.make(count.usedCount), status: row.status, contentDigest: row.contentDigest })
   })
 
@@ -501,6 +503,7 @@ export const listUploadedPhotos = (
           cameraId: CameraId.make(row.cameraId),
           objectKey: ObjectKey.make(row.objectKey),
           thumbKey: ObjectKey.make(row.thumbKey),
+          filterPack: FilterPack.make(row.filterPack ?? "film"),
           takenAt: new Date(row.takenAt),
           uploadedAt: new Date(row.uploadedAt)
         })

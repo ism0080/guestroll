@@ -1,0 +1,1 @@
+ALTER TABLE `photos` ADD `filterPack` text DEFAULT 'film' NOT NULL;
