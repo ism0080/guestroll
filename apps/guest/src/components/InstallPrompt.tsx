@@ -139,13 +139,6 @@ export const InstallPrompt = (): JSX.Element => {
                   <CloseIcon class="h-4 w-4" />
                 </button>
               </div>
-              <div class="flex flex-wrap gap-1.5">
-                <span class="badge badge-outline badge-sm gap-1">
-                  <span class="loading loading-spinner loading-xs" />
-                  Photos keep saving in the background
-                </span>
-                <span class="badge badge-outline badge-sm">Works offline</span>
-              </div>
             </div>
           </div>
         </div>
