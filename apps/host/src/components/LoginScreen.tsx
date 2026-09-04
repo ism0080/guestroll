@@ -27,9 +27,6 @@ export const LoginScreen = (props: LoginScreenProps): JSX.Element => {
             </p>
             <h1 class="mt-1 text-3xl font-extrabold text-base-content">Welcome back</h1>
           </div>
-          <p class="max-w-xs text-base-content/70">
-            Sign in with the passcode from your invite to watch the photos roll in.
-          </p>
         </div>
 
         <form class="paper-card p-5" onSubmit={submit}>
