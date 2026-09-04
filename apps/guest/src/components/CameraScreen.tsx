@@ -21,6 +21,7 @@ export interface CameraScreenProps {
   readonly photoLimit: number
   readonly filterPack: string
   readonly pendingCount: Accessor<number>
+  readonly canCapture: Accessor<boolean>
   readonly onCapture: (bitmap: ImageBitmap) => void
   readonly onCaptureError?: () => void
   readonly onPickFromGallery: () => void
@@ -245,7 +246,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   }
 
   const handleCapture = (): void => {
-    if (video === undefined) return
+    if (video === undefined || !props.canCapture()) return
     // Native zoom is already baked into the track frames; software zoom
     // needs the center crop applied at capture time.
     const captureZoom = softwareZoom() ? zoom() : 1
@@ -362,6 +363,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
           type="button"
           class="btn btn-circle btn-ghost btn-lg text-white"
           aria-label="Add from photo library"
+          disabled={!props.canCapture()}
           onClick={props.onPickFromGallery}
         >
           <GalleryIcon class="h-7 w-7" />
@@ -371,6 +373,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
           type="button"
           class="shutter-btn grid h-20 w-20 place-items-center rounded-full border-4 border-white bg-white/10 shadow-xl backdrop-blur-sm"
           aria-label="Take a photo"
+          disabled={!props.canCapture()}
           onClick={handleCapture}
         >
           <span class="h-14 w-14 rounded-full bg-primary shadow-[inset_0_-3px_6px_rgba(0,0,0,0.25)]" />

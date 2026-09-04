@@ -6,6 +6,7 @@ import type { JSX } from "solid-js"
 import { ApiError, createCamera, getEvent, randomUUID } from "~/lib/api"
 import { compressCanvas, compressThumbnail, loadGalleryBitmap, renderFrame, renderThumbnail } from "~/lib/image"
 import { deviceGuestId, deviceGuestName, saveDeviceGuestName } from "~/lib/guestId"
+import { claimedPhotoCount, hasCaptureCapacity } from "~/lib/rollCapacity"
 import { clearCameraSession, loadCameraSession, rememberEventSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
 import { onWorkerMessage, readQueueState, retryFailedUploads, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
@@ -52,11 +53,6 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   const [doneError, setDoneError] = createSignal<string | null>(null)
   let fileInput: HTMLInputElement | undefined
 
-  const storedFull = createMemo<boolean>(() => {
-    const storedCamera = camera()
-    return storedCamera !== null && storedCamera.usedCount >= storedCamera.photoLimit
-  })
-
   const eventQuery = createQuery(() => ({
     queryKey: ["event", slug],
     queryFn: () => getEvent(slug),
@@ -72,15 +68,6 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   createEffect(() => {
     const event = eventQuery.data
     if (event !== undefined) rememberEventSession(event.slug, event.title)
-  })
-
-  const phase = createMemo<Phase>(() => {
-    if (fatalError() !== null) return "error"
-    if (forceDone() || storedFull()) return "done"
-    if (eventQuery.isPending) return "loading"
-    if (eventQuery.isError) return "error"
-    if (camera() !== null) return "shooting"
-    return "welcome"
   })
 
   const errorKind = createMemo<ErrorKind>(() => {
@@ -131,6 +118,27 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   const [failedHidden, setFailedHidden] = createSignal(false)
   let disposeWorkerMessages: (() => void) | undefined
 
+  // A queued or currently encoding photo already occupies an exposure. Count
+  // it locally until the server-confirmed total catches up.
+  const claimedCount = createMemo<number>(() => {
+    const session = camera()
+    if (session === null) return 0
+    return claimedPhotoCount(session.usedCount, pendingCount(), failedCount(), savingCount())
+  })
+  const rollFull = createMemo<boolean>(() => {
+    const session = camera()
+    return session !== null && !hasCaptureCapacity(claimedCount(), session.photoLimit)
+  })
+  const canCapture = createMemo<boolean>(() => !rollFull())
+  const phase = createMemo<Phase>(() => {
+    if (fatalError() !== null) return "error"
+    if (forceDone() || rollFull()) return "done"
+    if (eventQuery.isPending) return "loading"
+    if (eventQuery.isError) return "error"
+    if (camera() !== null) return "shooting"
+    return "welcome"
+  })
+
   const applyUploadResult = (usedCount: number, photoLimit: number): void => {
     const loaded = eventQuery.data
     const session = camera()
@@ -141,7 +149,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   }
 
   const refreshPending = async (): Promise<void> => {
-    const state = await readQueueState()
+    const state = await readQueueState(camera()?.cameraId)
     setPendingCount(state.pending)
     setFailedCount(state.failed)
   }
@@ -163,8 +171,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
         void refreshPending()
         break
       case "pending":
-        setPendingCount(message.pending)
-        setFailedCount(message.failed)
+        void refreshPending()
         break
     }
   }
@@ -185,7 +192,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
 
   const handleGallery = (): void => {
     if (camera() !== null) {
-      fileInput?.click()
+      if (canCapture()) fileInput?.click()
       return
     }
     createCameraMutation.mutate(undefined, {
@@ -199,7 +206,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   const persistCanvas = async (canvas: HTMLCanvasElement, takenAt: Date): Promise<void> => {
     const loaded = eventQuery.data
     const session = camera()
-    if (loaded === undefined || session === null) return
+    if (loaded === undefined || session === null || !canCapture()) return
     setSavingCount((count) => count + 1)
     try {
       const blob = await compressCanvas(canvas)
@@ -244,6 +251,10 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
 
   const handleCapture = (bitmap: ImageBitmap): void => {
     try {
+      if (!canCapture()) {
+        bitmap.close()
+        return
+      }
       const takenAt = new Date()
       const canvas = renderFrame(bitmap)
       bitmap.close()
@@ -315,6 +326,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
             photoLimit={camera()!.photoLimit}
             filterPack={filterPack()}
             pendingCount={() => pendingCount() + savingCount()}
+            canCapture={canCapture}
             onCapture={handleCapture}
             onCaptureError={() => setUploadError("Couldn't take that photo. Try again.")}
             onPickFromGallery={handleGallery}

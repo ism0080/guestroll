@@ -151,8 +151,8 @@ export const retryFailedUploads = async (): Promise<number> => {
   }
 }
 
-/** Reads the current pending/failed counts straight from the queue store. */
-export const readQueueState = async (): Promise<QueueState> => {
+/** Reads queued upload counts, optionally limited to one camera roll. */
+export const readQueueState = async (cameraId?: string): Promise<QueueState> => {
   if (!("indexedDB" in window)) return { pending: 0, failed: 0 }
   let db: IDBDatabase
   try {
@@ -169,6 +169,7 @@ export const readQueueState = async (): Promise<QueueState> => {
     let pending = 0
     let failed = 0
     for (const record of records) {
+      if (cameraId !== undefined && record.cameraId !== cameraId) continue
       if (record.status === "failed") failed += 1
       else pending += 1
     }
