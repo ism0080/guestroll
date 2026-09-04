@@ -9,8 +9,6 @@ import * as Etag from "effect/unstable/http/Etag"
 import * as HttpPlatform from "effect/unstable/http/HttpPlatform"
 import * as HttpMiddleware from "effect/unstable/http/HttpMiddleware"
 import * as HttpRouter from "effect/unstable/http/HttpRouter"
-import { Bucket } from "./Bucket.ts"
-import { Database } from "./Db.ts"
 
 const HttpPlatformStub = Layer.succeed(HttpPlatform.HttpPlatform, {
   platform: "web",
@@ -27,12 +25,7 @@ const isWorkersDevOrigin = (origin: string) => /^https:\/\/[^/]+\.workers\.dev$/
 /** Runtime Effect entrypoint loaded by Alchemy's generated Worker bridge. */
 const ApiWorker = Effect.gen(function* () {
   const env = yield* Cloudflare.WorkerEnvironment
-  const db = yield* Database
-  const bucket = yield* Bucket
   const exec = yield* Cloudflare.WorkerExecutionContext
-
-  yield* Cloudflare.D1.QueryDatabase(db)
-  yield* Cloudflare.R2.ReadWriteBucket(bucket)
 
   const WorkerEnvLive = Layer.succeed(WorkerEnv, {
     DB: env["DB"],
@@ -89,11 +82,6 @@ const ApiWorker = Effect.gen(function* () {
       Layer.provideMerge(Layer.mergeAll(AppLive, BackgroundLive), WorkerEnvLive)
     ) as HttpEffect
   }
-}).pipe(
-  Effect.provide([
-    Cloudflare.D1.QueryDatabaseBinding,
-    Cloudflare.R2.ReadWriteBucketBinding
-  ])
-)
+})
 
 export default ApiWorker
