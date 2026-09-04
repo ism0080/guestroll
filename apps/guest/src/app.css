@@ -188,6 +188,12 @@
   padding-bottom: calc(2rem + env(safe-area-inset-bottom));
 }
 
+.capture-adjustment-controls {
+  /* Clear the shutter bar: its 5rem button, 1.5rem vertical padding, and
+   the iPhone home-indicator inset are all part of its occupied height. */
+  bottom: calc(8rem + env(safe-area-inset-bottom));
+}
+
 .capture-notice-top {
   top: calc(1rem + env(safe-area-inset-top));
 }

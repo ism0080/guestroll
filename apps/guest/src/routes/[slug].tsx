@@ -367,6 +367,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
           starting={createCameraMutation.isPending}
           error={doneError()}
           onStartNewRoll={handleStartNewRoll}
+          onHome={() => navigate("/")}
         />
       </Show>
 

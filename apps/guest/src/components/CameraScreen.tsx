@@ -315,7 +315,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
         </button>
       </div>
 
-      <div class="pointer-events-none absolute inset-x-0 bottom-28 z-10 flex flex-col items-center gap-2 px-6">
+      <div class="capture-adjustment-controls pointer-events-none absolute inset-x-0 z-10 flex flex-col items-center gap-2 px-6">
         <Show when={showLensSwitcher()}>
           <div class="pointer-events-auto flex gap-1 rounded-full bg-black/50 p-1 backdrop-blur-sm" role="group" aria-label="Choose lens">
             <For each={devicesForFacing()}>

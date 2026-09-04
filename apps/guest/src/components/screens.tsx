@@ -79,6 +79,7 @@ export interface DoneScreenProps {
   readonly starting?: boolean
   readonly error?: string | null
   readonly onStartNewRoll: () => void
+  readonly onHome: () => void
 }
 
 export const DoneScreen = (props: DoneScreenProps): JSX.Element => (
@@ -125,6 +126,13 @@ export const DoneScreen = (props: DoneScreenProps): JSX.Element => (
           onClick={props.onStartNewRoll}
         >
           {props.starting ? <span class="loading loading-spinner" /> : "Start a new roll"}
+        </button>
+        <button
+          type="button"
+          class="shutter-btn btn btn-primary btn-lg mt-5 w-full border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
+          onClick={props.onHome}
+        >
+          Home
         </button>
       </div>
     </div>
