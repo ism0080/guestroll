@@ -1,11 +1,17 @@
 import { Effect } from "effect"
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient"
+import * as HttpClient from "effect/unstable/http/HttpClient"
+import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest"
 import * as HttpApiClient from "effect/unstable/httpapi/HttpApiClient"
 import { EventsApi } from "@guestroll/api/api"
+
+export { LocalApiBase, LocalGuestBase } from "@guestroll/api/local"
 
 export interface ApiClientOptions {
   readonly baseUrl: string
   readonly credentials?: "omit" | "same-origin" | "include"
+  /** Supplies a header (e.g. an auth bearer) merged into every request. */
+  readonly getHeader?: () => readonly [name: string, value: string] | undefined
 }
 
 /** The full typed client generated from `EventsApi` (guest + host groups). */
@@ -24,7 +30,16 @@ export type HostApi = ApiClient["host"]
  */
 export const makeApiClient = (options: ApiClientOptions): Effect.Effect<ApiClient> =>
   HttpApiClient.make(EventsApi, {
-    baseUrl: options.baseUrl
+    baseUrl: options.baseUrl,
+    transformClient:
+      options.getHeader === undefined
+        ? undefined
+        : HttpClient.mapRequest((request) => {
+            const header = options.getHeader?.()
+            return header === undefined
+              ? request
+              : HttpClientRequest.setHeader(request, header[0], header[1])
+          })
   }).pipe(
     Effect.provide(FetchHttpClient.layer),
     Effect.provideService(FetchHttpClient.RequestInit, {

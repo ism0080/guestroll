@@ -1,5 +1,6 @@
 import * as Cloudflare from "alchemy/Cloudflare"
 import * as Output from "alchemy/Output"
+import { LocalApiBase, LocalGuestBase } from "@guestroll/api/local"
 
 /**
  * The host dashboard — a SolidStart SPA (client-side rendering only) deployed
@@ -19,7 +20,7 @@ export const Host = (
       ? undefined
       : { name: domain, zoneName },
     env: {
-      VITE_API_BASE: Output.map(apiUrl, (url) => url ?? "http://localhost:8787"),
-      VITE_GUEST_BASE: Output.map(guestUrl, (url) => url ?? "http://localhost:5174")
+      VITE_API_BASE: Output.map(apiUrl, (url) => url ?? LocalApiBase),
+      VITE_GUEST_BASE: Output.map(guestUrl, (url) => url ?? LocalGuestBase)
     }
   })

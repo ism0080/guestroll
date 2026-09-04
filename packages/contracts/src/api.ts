@@ -51,7 +51,9 @@ export class HostLogin extends Schema.Class<HostLogin>("HostLogin")({
 }) {}
 
 export class HostSession extends Schema.Class<HostSession>("HostSession")({
-  authenticated: Schema.Boolean
+  authenticated: Schema.Boolean,
+  /** Bearer token minted at login; the dashboard sends it as `Authorization`. */
+  token: Schema.optional(Schema.String)
 }) {}
 
 export class PhotoCursor extends Schema.Class<PhotoCursor>("PhotoCursor")({

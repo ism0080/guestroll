@@ -52,7 +52,10 @@ const _workerEnabled = (): boolean =>
 
 const _ensureServiceWorker = (): Promise<boolean> => {
   if (!_workerEnabled()) return Promise.resolve(false)
-  return (_registration ??= navigator.serviceWorker.register("/sw.js").then(() => true, () => false))
+  // The build id in the query gives every deploy a fresh worker script and
+  // shell cache version without manual bumps (see `public/sw.js`).
+  return (_registration ??=
+    navigator.serviceWorker.register(`/sw.js?v=${__SW_VERSION__}`).then(() => true, () => false))
 }
 
 export const registerServiceWorker = (): void => {

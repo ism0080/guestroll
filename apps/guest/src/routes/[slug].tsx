@@ -23,6 +23,9 @@ import { CameraBody } from "@guestroll/ui"
 
 type Phase = "loading" | "error" | "welcome" | "shooting" | "done"
 
+/** How often the guest re-resumes their camera to reconcile server counts. */
+const ReconcileIntervalMs = 60_000
+
 const _kindFor = (error: ApiError): ErrorKind => {
   switch (error.kind) {
     case "not-found":
@@ -123,7 +126,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   const claimedCount = createMemo<number>(() => {
     const session = camera()
     if (session === null) return 0
-    return claimedPhotoCount(session.usedCount, pendingCount(), failedCount(), savingCount())
+    return claimedPhotoCount(session.usedCount, pendingCount(), savingCount())
   })
   const rollFull = createMemo<boolean>(() => {
     const session = camera()
@@ -176,19 +179,46 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
     }
   }
 
+  const handleStart = (): void => {
+    createCameraMutation.mutate()
+  }
+
+  // Periodically re-resumes the camera so the local counter catches up with
+  // reality even when the upload worker dies mid-session, and picks up a
+  // host reset (which mints a fresh roll) and photo-limit changes. Silent:
+  // only a full roll moves the guest to the done screen.
+  const reconcileMutation = createMutation(() => ({
+    mutationFn: () => createCamera(slug, deviceGuestId(), guestName().trim()),
+    onSuccess: (result) => {
+      const session = camera()
+      if (session === null) return
+      if (result.cameraId !== session.cameraId) {
+        const fresh = makeSession(result.cameraId, result.usedCount, result.photoLimit)
+        saveCameraSession(slug, fresh)
+        setCamera(fresh)
+        return
+      }
+      applyUploadResult(result.usedCount, result.photoLimit)
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.kind === "conflict") setForceDone(true)
+    }
+  }))
+
   onMount(() => {
     void wakeWorker()
     void refreshPending()
     disposeWorkerMessages = onWorkerMessage(handleWorkerMessage)
+    const reconcileTimer = window.setInterval(() => {
+      if (phase() !== "shooting" || reconcileMutation.isPending) return
+      reconcileMutation.mutate()
+    }, ReconcileIntervalMs)
+    onCleanup(() => window.clearInterval(reconcileTimer))
   })
 
   onCleanup(() => {
     disposeWorkerMessages?.()
   })
-
-  const handleStart = (): void => {
-    createCameraMutation.mutate()
-  }
 
   const handleGallery = (): void => {
     if (camera() !== null) {

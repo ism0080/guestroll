@@ -2,6 +2,7 @@ import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { filterPackCss, type HostPhoto } from "@guestroll/contracts"
 import { downloadSinglePhoto, photoImageUrl } from "~/lib/api"
+import { AuthImage } from "~/components/AuthImage"
 import { CloseIcon, DownloadIcon } from "@guestroll/ui"
 
 export interface LightboxProps {
@@ -56,16 +57,15 @@ export const Lightbox = (props: LightboxProps): JSX.Element => {
           class="flex max-w-[92vw] flex-col items-center gap-2"
           onClick={(event) => event.stopPropagation()}
         >
-          <img
-            src={props.photo !== null ? photoImageUrl(props.slug, props.photo.id) : ""}
-            alt={
-              props.photo !== null
-                ? `Full size guest photo by ${props.photo.guestName ?? props.guestNames?.[props.photo.cameraId] ?? "Anonymous guest"}`
-                : "Full size guest photo"
-            }
-            crossorigin="use-credentials"
-            style={{ filter: props.photo !== null ? filterPackCss(props.photo.filterPack) : undefined }}
-          />
+          <Show when={props.photo} keyed>
+            {(photo) => (
+              <AuthImage
+                url={photoImageUrl(props.slug, photo.id)}
+                alt={`Full size guest photo by ${photo.guestName ?? props.guestNames?.[photo.cameraId] ?? "Anonymous guest"}`}
+                style={{ filter: filterPackCss(photo.filterPack) }}
+              />
+            )}
+          </Show>
           <figcaption class="flex items-center gap-3 text-sm text-white/80">
             <span>
               {props.photo?.guestName ??

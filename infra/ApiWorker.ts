@@ -61,8 +61,11 @@ export const ApiWorkerProgram = Effect.gen(function* () {
               origin === env["HOST_ALLOWED_ORIGIN"] ||
               origin === env["GUEST_ALLOWED_ORIGIN"],
             allowedMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-            allowedHeaders: ["Content-Type", "b3", "traceparent", "tracestate", "baggage"],
-            credentials: true,
+            // `Authorization` carries the host session; requests are never
+            // credentialed, so `credentials` stays off and CSRF has no
+            // ambient credentials to ride on.
+            allowedHeaders: ["Authorization", "Content-Type", "b3", "traceparent", "tracestate", "baggage"],
+            credentials: false,
             maxAge: 86400
           }),
           { global: true }

@@ -1,5 +1,6 @@
 import * as Cloudflare from "alchemy/Cloudflare"
 import * as Output from "alchemy/Output"
+import { LocalApiBase, LocalGuestBase } from "@guestroll/api/local"
 
 /**
  * The guest PWA — a SolidStart SPA (client-side rendering only) deployed
@@ -20,7 +21,7 @@ export const Guest = (
       ? undefined
       : { name: domain, zoneName },
     env: {
-      VITE_API_BASE: Output.map(apiUrl, (url) => url ?? "http://localhost:8787"),
-      VITE_GUEST_BASE: domain === undefined ? "http://localhost:5174" : `https://${domain}`
+      VITE_API_BASE: Output.map(apiUrl, (url) => url ?? LocalApiBase),
+      VITE_GUEST_BASE: domain === undefined ? LocalGuestBase : `https://${domain}`
     }
   })

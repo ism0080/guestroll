@@ -22,11 +22,6 @@ import {
 } from "@guestroll/contracts"
 import { randomEventSlug, randomId } from "./ids.ts"
 
-export class EventNotFound extends Schema.TaggedError<EventNotFound>()(
-  "EventNotFound",
-  { id: EventId }
-) {}
-
 export class EventNotLive extends Schema.TaggedError<EventNotLive>()(
   "EventNotLive",
   { id: EventId, status: EventStatus }
@@ -70,7 +65,21 @@ interface EventRow {
 }
 
 const eventColumns = `id, ownerId, slug, title, filterPack, photoLimit, status, createdAt, updatedAt`
-const photoColumns = `id, uploadId, eventId, cameraId, objectKey, thumbKey, filterPack, takenAt, uploadedAt`
+const photoColumnNames = [
+  `id`,
+  `uploadId`,
+  `eventId`,
+  `cameraId`,
+  `objectKey`,
+  `thumbKey`,
+  `filterPack`,
+  `takenAt`,
+  `uploadedAt`
+]
+
+/** Prepends a table alias to every photo column without string surgery. */
+const _prefixedPhotoColumns = (prefix: string): string =>
+  photoColumnNames.map((column) => `${prefix}${column}`).join(", ")
 
 interface PhotoRow {
   readonly id: string
@@ -101,7 +110,8 @@ interface HostPhotoRow extends PhotoRow {
   readonly guestName: string | null
 }
 
-const _toHostPhoto = (row: HostPhotoRow): HostPhoto =>
+/** Maps a joined photo row (with an optional guest name) to `HostPhoto`. */
+export const toHostPhoto = (row: HostPhotoRow): HostPhoto =>
   new HostPhoto({
     id: PhotoId.make(row.id),
     uploadId: UploadId.make(row.uploadId),
@@ -224,32 +234,6 @@ export const updateEventPhotoLimit = (
     return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
   })
 
-interface CameraRow {
-  readonly id: string
-  readonly eventId: string
-  readonly guestName: string | null
-  readonly usedCount: number
-  readonly createdAt: string
-}
-
-const _toCamera = (row: CameraRow): Camera =>
-  new Camera({
-    id: CameraId.make(row.id),
-    eventId: EventId.make(row.eventId),
-    guestName: row.guestName ?? undefined,
-    usedCount: row.usedCount,
-    createdAt: new Date(row.createdAt)
-  })
-
-export const getCamera = (id: CameraId): Effect.Effect<Option.Option<Camera>, never, Sql> =>
-  Effect.gen(function* () {
-    const client = yield* D1Client.D1Client
-    const rows = yield* _run(client<CameraRow>`
-      SELECT id, eventId, guestName, usedCount, createdAt
-      FROM cameras WHERE id = ${id}`)
-    return Option.map(Option.fromNullishOr(rows[0]), _toCamera)
-  })
-
 /**
  * Creates the guest's camera for an event, or resumes their existing active
  * roll. A guest (identified by the per-device `guestId`) has at most one
@@ -258,7 +242,8 @@ export const getCamera = (id: CameraId): Effect.Effect<Option.Option<Camera>, ne
  * new one with `CameraLimitReached`. A host reset (`resetCamera`) marks the
  * roll as superseded, after which the next `createCamera` starts a fresh
  * roll. The `INSERT … WHERE NOT EXISTS (active roll)` guard keeps concurrent
- * creates race-safe.
+ * creates race-safe; the follow-up select is retried so a camera reset
+ * racing the insert cannot surface as a defect.
  */
 export const createCamera = (
   eventId: EventId,
@@ -268,31 +253,46 @@ export const createCamera = (
 ): Effect.Effect<Camera, CameraLimitReached, Sql | import("./env.ts").WorkerEnv> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    const id = yield* randomId
-    const camera = new Camera({
-      id: CameraId.make(id),
-      eventId,
-      guestName,
-      usedCount: 0,
-      createdAt: now
-    })
-    const inserted = yield* _run(client<{ readonly id: string }>`
-      INSERT OR IGNORE INTO cameras (id, eventId, guestId, guestName, usedCount, createdAt)
-      SELECT ${camera.id}, ${camera.eventId}, ${guestId}, ${guestName}, ${camera.usedCount}, ${camera.createdAt.toISOString()}
-      WHERE NOT EXISTS (
-        SELECT 1 FROM cameras WHERE eventId = ${eventId} AND guestId = ${guestId} AND resetAt IS NULL
-      )
-      RETURNING id AS id`)
-    if (inserted[0] !== undefined) return camera
-    const rows = yield* _run(client<CameraRow & { readonly photoLimit: number }>`
-      SELECT c.id, c.eventId, c.guestName, c.usedCount, c.createdAt, e.photoLimit
-      FROM cameras c JOIN events e ON e.id = c.eventId
-      WHERE c.eventId = ${eventId} AND c.guestId = ${guestId} AND c.resetAt IS NULL
-      ORDER BY c.createdAt DESC, c.id DESC LIMIT 1`)
-    const row = Option.fromNullishOr(rows[0])
-    if (Option.isNone(row)) return yield* Effect.die("Guest camera claim lost after guarded insert")
-    if (row.value.usedCount >= row.value.photoLimit) return yield* new CameraLimitReached()
-    return _toCamera(row.value)
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const camera = new Camera({
+        id: CameraId.make(yield* randomId),
+        eventId,
+        guestName,
+        usedCount: 0,
+        createdAt: now
+      })
+      const inserted = yield* _run(client<{ readonly id: string }>`
+        INSERT OR IGNORE INTO cameras (id, eventId, guestId, guestName, usedCount, createdAt)
+        SELECT ${camera.id}, ${camera.eventId}, ${guestId}, ${guestName}, ${camera.usedCount}, ${camera.createdAt.toISOString()}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM cameras WHERE eventId = ${eventId} AND guestId = ${guestId} AND resetAt IS NULL
+        )
+        RETURNING id AS id`)
+      if (inserted[0] !== undefined) return camera
+      const rows = yield* _run(client<{
+          readonly id: string
+          readonly eventId: string
+          readonly guestName: string | null
+          readonly usedCount: number
+          readonly createdAt: string
+          readonly photoLimit: number
+        }>`
+        SELECT c.id, c.eventId, c.guestName, c.usedCount, c.createdAt, e.photoLimit
+        FROM cameras c JOIN events e ON e.id = c.eventId
+        WHERE c.eventId = ${eventId} AND c.guestId = ${guestId} AND c.resetAt IS NULL
+        ORDER BY c.createdAt DESC, c.id DESC LIMIT 1`)
+      const row = Option.fromNullishOr(rows[0])
+      if (Option.isNone(row)) continue
+      if (row.value.usedCount >= row.value.photoLimit) return yield* new CameraLimitReached()
+      return new Camera({
+        id: CameraId.make(row.value.id),
+        eventId: EventId.make(row.value.eventId),
+        guestName: row.value.guestName ?? undefined,
+        usedCount: row.value.usedCount,
+        createdAt: new Date(row.value.createdAt)
+      })
+    }
+    return yield* Effect.die("Guest camera claim lost after guarded insert")
   })
 
 interface HostCameraRow {
@@ -449,7 +449,7 @@ export const listEventPhotos = (
 ): Effect.Effect<ReadonlyArray<HostPhoto>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
-    const columns = client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}, c.guestName AS guestName`)
+    const columns = client.literal(`${_prefixedPhotoColumns("p.")}, c.guestName AS guestName`)
     const rows = yield* Option.match(cursor, {
       onNone: () => _run(client<HostPhotoRow>`
         SELECT ${columns}
@@ -464,7 +464,7 @@ export const listEventPhotos = (
             OR (p.uploadedAt = ${value.uploadedAt.toISOString()} AND p.id < ${value.id}))
         ORDER BY p.uploadedAt DESC, p.id DESC LIMIT ${limit}`)
     })
-    return rows.map(_toHostPhoto)
+    return rows.map(toHostPhoto)
   })
 
 /** Fetches one uploaded photo owned by the caller, scoped to an event. */
@@ -476,10 +476,10 @@ export const getEventPhoto = (
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
     const rows = yield* _run(client<HostPhotoRow>`
-      SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}, c.guestName AS guestName`)}
+      SELECT ${client.literal(`${_prefixedPhotoColumns("p.")}, c.guestName AS guestName`)}
       FROM photos p JOIN events e ON e.id = p.eventId JOIN cameras c ON c.id = p.cameraId
       WHERE p.id = ${photoId} AND p.eventId = ${eventId} AND e.ownerId = ${ownerId} AND p.status = 'uploaded'`)
-    return Option.map(Option.fromNullishOr(rows[0]), _toHostPhoto)
+    return Option.map(Option.fromNullishOr(rows[0]), toHostPhoto)
   })
 
 /** Every uploaded photo for an event, oldest first (ZIP build input). */
@@ -489,12 +489,12 @@ export const listUploadedPhotos = (
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
     const rows = yield* _run(client<PhotoRow>`
-      SELECT ${client.literal(`p.${photoColumns.replaceAll(", ", ", p.")}`)}
+      SELECT ${client.literal(_prefixedPhotoColumns("p."))}
       FROM photos p
       WHERE p.eventId = ${eventId} AND p.status = 'uploaded'
       ORDER BY p.uploadedAt ASC, p.id ASC`)
     return rows.map(
-      (row) =>
+      (row): Photo =>
         new Photo({
           id: PhotoId.make(row.id),
           uploadId: UploadId.make(row.uploadId),
@@ -633,4 +633,46 @@ export const deleteEvent = (
       photoKeys: photos.flatMap((row) => [row.objectKey, row.thumbKey]),
       downloadKey: download[0]?.objectKey ?? null
     })
+  })
+
+/**
+ * Creates a host login session. Tokens are signed locally, but their
+ * liveness lives here, so logout (or purging) invalidates them everywhere.
+ */
+export const createHostSession = (
+  id: string,
+  createdAt: Date,
+  expiresAt: Date
+): Effect.Effect<void, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    yield* _run(client`
+      INSERT INTO host_sessions (id, createdAt, expiresAt)
+      VALUES (${id}, ${createdAt.toISOString()}, ${expiresAt.toISOString()})`)
+  })
+
+/** Reads a live host session; expired or revoked sessions read as `None`. */
+export const getHostSession = (
+  id: string,
+  now: Date
+): Effect.Effect<Option.Option<string>, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    const rows = yield* _run(client<{ readonly id: string }>`
+      SELECT id FROM host_sessions WHERE id = ${id} AND expiresAt > ${now.toISOString()}`)
+    return Option.fromNullishOr(rows[0]).pipe(Option.map((row) => row.id))
+  })
+
+/** Revokes a host session; the signed token stops working immediately. */
+export const revokeHostSession = (id: string): Effect.Effect<void, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    yield* _run(client`DELETE FROM host_sessions WHERE id = ${id}`)
+  })
+
+/** Drops expired host sessions (best-effort housekeeping at login time). */
+export const purgeExpiredHostSessions = (now: Date): Effect.Effect<void, never, Sql> =>
+  Effect.gen(function* () {
+    const client = yield* D1Client.D1Client
+    yield* _run(client`DELETE FROM host_sessions WHERE expiresAt <= ${now.toISOString()}`)
   })

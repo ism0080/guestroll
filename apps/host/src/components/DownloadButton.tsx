@@ -1,14 +1,14 @@
 import { createSignal, onCleanup, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import type { DownloadStatus } from "@guestroll/contracts"
-import { downloadFileUrl, getDownloadStatus, requestDownload } from "~/lib/api"
+import { authorizedFetch, downloadFileUrl, getDownloadStatus, requestDownload } from "~/lib/api"
 
 const PollIntervalMs = 3000
 const MaxPolls = 180
 
 const startFileDownload = async (slug: string): Promise<void> => {
   const { saveBlob } = await import("~/lib/share")
-  const response = await fetch(downloadFileUrl(slug), { credentials: "include" })
+  const response = await authorizedFetch(downloadFileUrl(slug))
   if (!response.ok) throw new Error(`Download failed with status ${response.status}`)
   const blob = await response.blob()
   await saveBlob(blob, `${slug}-photos.zip`, { title: `${slug}-photos.zip` })

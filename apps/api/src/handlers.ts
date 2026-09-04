@@ -4,7 +4,6 @@ import * as D1Client from "@effect/sql-d1/D1Client"
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder"
 import { HttpApiError } from "effect/unstable/httpapi"
 import * as Multipart from "effect/unstable/http/Multipart"
-import * as HttpEffect from "effect/unstable/http/HttpEffect"
 import type * as HttpServerRequest from "effect/unstable/http/HttpServerRequest"
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
 import {
@@ -17,11 +16,10 @@ import {
   EventSlug,
   HostPhotoPage,
   HostSession,
+  OwnerId,
   PhotoCursor,
   PhotoId,
   RateLimitExceeded,
-  HostPhoto,
-  Photo,
   UploadId,
   UploadResult,
   ObjectKey,
@@ -32,7 +30,7 @@ import { EventsApi } from "./api.ts"
 import { Background } from "./background.ts"
 import { DownloadBuildTimeoutMs, runDownloadBuild } from "./download.ts"
 import { WorkerEnv } from "./env.ts"
-import { HostAuth, HostSessionCookie } from "./host-auth.ts"
+import { HostAuth, HostOwnerId, SessionLifetimeSeconds } from "./host-auth.ts"
 import * as repo from "./repo.ts"
 import { R2 } from "./storage.ts"
 import { randomId } from "./ids.ts"
@@ -49,27 +47,20 @@ export const eventToPublic = (event: Event): EventPublic =>
     filterPack: event.filterPack
   })
 
-export const photoToHost = (photo: Photo, guestName?: string): HostPhoto =>
-  new HostPhoto({
-    id: photo.id,
-    uploadId: photo.uploadId,
-    eventId: photo.eventId,
-    cameraId: photo.cameraId,
-    guestName,
-    objectKey: photo.objectKey,
-    thumbKey: photo.thumbKey,
-    filterPack: photo.filterPack,
-    takenAt: photo.takenAt,
-    uploadedAt: photo.uploadedAt
-  })
-
 const _notFound = () => new HttpApiError.NotFound()
 const _badRequest = () => new HttpApiError.BadRequest()
 const _unauthorized = () => new HttpApiError.Unauthorized()
 
-const _isAllowedOrigin = (origin: string | undefined, configuredOrigin: string) => {
-  if (origin === configuredOrigin && configuredOrigin !== "") return true
-  return origin !== undefined && /^https:\/\/[^/]+\.workers\.dev$/.test(origin)
+/**
+ * Whether a request origin may call the API. When a custom origin is
+ * configured, only that exact origin is accepted; with no configured origin
+ * (workers.dev-only deployments) any generated `*.workers.dev` origin is
+ * accepted instead. Host auth is a bearer header (never ambient cookies), so
+ * a cross-origin page gains nothing from being allowed.
+ */
+export const isAllowedOrigin = (origin: string | undefined, configuredOrigin: string): boolean => {
+  if (configuredOrigin !== "" && origin === configuredOrigin) return true
+  return configuredOrigin === "" && origin !== undefined && /^https:\/\/[^/]+\.workers\.dev$/.test(origin)
 }
 
 const _requireRateLimit = (
@@ -84,20 +75,56 @@ const _requireRateLimit = (
     Effect.filterOrFail((result) => result.success, () => new RateLimitExceeded())
   )
 
-const _requireHost = (request: HttpServerRequest.HttpServerRequest) =>
+/** Sniffs the stored image format from its leading signature bytes. */
+export const imageSignatureContentType = (bytes: Uint8Array): string | undefined =>
+  Match.value(bytes).pipe(
+    Match.when(
+      { 0: 0xff, 1: 0xd8 },
+      () => "image/jpeg"
+    ),
+    Match.when(
+      { 0: 0x89, 1: 0x50, 2: 0x4e, 3: 0x47 },
+      () => "image/png"
+    ),
+    Match.when(
+      { 0: 0x52, 1: 0x49, 2: 0x46, 3: 0x46, 8: 0x57, 9: 0x45, 10: 0x42, 11: 0x50 },
+      () => "image/webp"
+    ),
+    Match.orElse(() => undefined)
+  )
+
+const _requireHostSession = (
+  request: HttpServerRequest.HttpServerRequest
+): Effect.Effect<
+  { readonly ownerId: OwnerId; readonly sessionId: string },
+  HttpApiError.Unauthorized,
+  WorkerEnv | HostAuth | D1Client.D1Client
+> =>
   Effect.gen(function* () {
     const env = yield* WorkerEnv
-    if (!_isAllowedOrigin(request.headers.origin, env.HOST_ALLOWED_ORIGIN)) return yield* _unauthorized()
+    if (!isAllowedOrigin(request.headers.origin, env.HOST_ALLOWED_ORIGIN)) return yield* _unauthorized()
+    const header = request.headers["authorization"]
+    const token = header !== undefined && header.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined
+    if (token === undefined || token === "") return yield* _unauthorized()
     const auth = yield* HostAuth
-    const ownerId = yield* auth.authorize(request)
-    if (Option.isNone(ownerId)) return yield* _unauthorized()
-    return ownerId.value
+    const verified = yield* auth.verifyToken(token)
+    if (Option.isNone(verified)) return yield* _unauthorized()
+    const nowMs = yield* Clock.currentTimeMillis
+    if (verified.value.expiresAt <= Math.floor(nowMs / 1000)) return yield* _unauthorized()
+    // Signature alone is not enough: the session row must still be live, so
+    // logout revokes the token server-side.
+    const session = yield* repo.getHostSession(verified.value.sessionId, new Date(nowMs))
+    if (Option.isNone(session)) return yield* _unauthorized()
+    return { ownerId: HostOwnerId, sessionId: verified.value.sessionId }
   })
+
+const _requireHost = (request: HttpServerRequest.HttpServerRequest) =>
+  Effect.map(_requireHostSession(request), (session) => session.ownerId)
 
 const _requireGuestOrigin = (request: HttpServerRequest.HttpServerRequest) =>
   Effect.gen(function* () {
     const env = yield* WorkerEnv
-    if (!_isAllowedOrigin(request.headers.origin, env.GUEST_ALLOWED_ORIGIN)) return yield* _unauthorized()
+    if (!isAllowedOrigin(request.headers.origin, env.GUEST_ALLOWED_ORIGIN)) return yield* _unauthorized()
     return undefined
   })
 
@@ -143,10 +170,15 @@ const _singlePart = (
 
 export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
   handlers
-    .handle("getEvent", ({ params }) =>
-       _requireEvent(params.slug).pipe(Effect.flatMap((event) =>
-         event.status === "live" ? Effect.succeed(eventToPublic(event)) : Effect.fail(_notFound())
-       ))
+    .handle("getEvent", ({ params, request }) =>
+      Effect.gen(function* () {
+        const env = yield* WorkerEnv
+        // The event card is public, but slugs are the only secret — keep
+        // enumeration and hammering bounded by the same guest limiter.
+        yield* _requireRateLimit(request, `event:${params.slug}`, env.GUEST_RATE_LIMIT)
+        const event = yield* _requireEvent(params.slug)
+        return event.status === "live" ? eventToPublic(event) : yield* _notFound()
+      })
     )
     .handle("createCamera", ({ params, payload, request }) =>
       Effect.gen(function* () {
@@ -190,19 +222,11 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const fileBytes = yield* filePart.contentEffect.pipe(
           Effect.mapError(() => _badRequest())
         )
-        const hasImageSignature = Match.value(filePart.contentType).pipe(
-          Match.when("image/jpeg", () => fileBytes[0] === 0xff && fileBytes[1] === 0xd8),
-          Match.when("image/png", () =>
-            fileBytes[0] === 0x89 && fileBytes[1] === 0x50 &&
-            fileBytes[2] === 0x4e && fileBytes[3] === 0x47),
-          Match.when("image/webp", () =>
-            fileBytes[0] === 0x52 && fileBytes[1] === 0x49 &&
-            fileBytes[2] === 0x46 && fileBytes[3] === 0x46 &&
-            fileBytes[8] === 0x57 && fileBytes[9] === 0x45 &&
-            fileBytes[10] === 0x42 && fileBytes[11] === 0x50),
-          Match.orElse(() => false)
-        )
-        if (!hasImageSignature) return yield* _badRequest()
+        // Trust the sniffed signature over the client's declared type.
+        const signatureType = imageSignatureContentType(fileBytes)
+        if (signatureType === undefined || signatureType !== filePart.contentType) {
+          return yield* _badRequest()
+        }
         const thumbParts = parts.filter((part) => part.key === "thumb")
         if (thumbParts.length > 1) return yield* _badRequest()
         const thumbPart = thumbParts[0]
@@ -278,34 +302,23 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
       Effect.gen(function* () {
         const env = yield* WorkerEnv
         yield* _requireRateLimit(request, "host-login", env.LOGIN_RATE_LIMIT)
-        if (!_isAllowedOrigin(request.headers.origin, env.HOST_ALLOWED_ORIGIN)) return yield* _unauthorized()
+        if (!isAllowedOrigin(request.headers.origin, env.HOST_ALLOWED_ORIGIN)) return yield* _unauthorized()
         const auth = yield* HostAuth
-        const token = yield* auth.authenticate(payload.passcode)
-        if (Option.isNone(token)) return yield* _unauthorized()
-        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-          HttpServerResponse.setCookie(response, HostSessionCookie, token.value, {
-            path: "/",
-            httpOnly: true,
-            secure: true,
-            sameSite: "none",
-            maxAge: "30 days"
-          }).pipe(Effect.orDie)
-        )
-        return new HostSession({ authenticated: true })
+        if (!(yield* auth.verifyPasscode(payload.passcode))) return yield* _unauthorized()
+        const now = yield* _nowDate
+        const expiresAt = Math.floor(now.getTime() / 1000) + SessionLifetimeSeconds
+        const sessionId = yield* randomId
+        yield* repo.createHostSession(sessionId, now, new Date(expiresAt * 1000))
+        yield* repo.purgeExpiredHostSessions(now)
+        const token = yield* auth.signSession(sessionId, expiresAt)
+        return new HostSession({ authenticated: true, token })
       })
     )
     .handle("logoutHost", ({ request }) =>
       Effect.gen(function* () {
-        yield* _requireHost(request)
-        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-          HttpServerResponse.setCookie(response, HostSessionCookie, "", {
-            path: "/",
-            httpOnly: true,
-            secure: true,
-            sameSite: "none",
-            maxAge: 0
-          }).pipe(Effect.orDie)
-        )
+        const session = yield* _requireHostSession(request)
+        // Revoke server-side so the token is dead even if a copy leaks.
+        yield* repo.revokeHostSession(session.sessionId)
         return new HostSession({ authenticated: false })
       })
     )
@@ -457,8 +470,10 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           Effect.flatMap(Effect.fromOption(() => _notFound()))
         )
         const r2 = yield* R2
+        // Only a genuinely missing object maps to 404; an R2 outage stays a
+        // defect and surfaces as a 500 instead of masquerading as "not found".
         const object = yield* r2.getObject(photo.objectKey).pipe(
-          Effect.mapError(() => _notFound())
+          Effect.catchTag("ObjectNotFound", () => _notFound())
         )
         return HttpServerResponse.raw(object.bytes, {
           status: 200,
@@ -480,11 +495,16 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           Effect.flatMap(Effect.fromOption(() => _notFound()))
         )
         const r2 = yield* R2
-        const object = yield* r2.getObject(photo.thumbKey).pipe(Effect.mapError(() => _notFound()))
+        const object = yield* r2.getObject(photo.thumbKey).pipe(
+          Effect.catchTag("ObjectNotFound", () => _notFound())
+        )
+        // Thumbs may be JPEG, PNG, or WebP depending on what the guest device
+        // produced; serve the sniffed format instead of an assumed one.
+        const contentType = imageSignatureContentType(object.bytes) ?? object.contentType
         return HttpServerResponse.raw(object.bytes, {
           status: 200,
           headers: {
-            "Content-Type": object.contentType,
+            "Content-Type": contentType,
             "Cache-Control": "private, max-age=300",
             "X-Content-Type-Options": "nosniff"
           }
@@ -498,9 +518,12 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           Effect.flatMap(Effect.fromOption(() => _notFound()))
         )
         const now = yield* _nowDate
+        // Read the stored row first, then the live photo count, so the
+        // freshness check uses the freshest possible count — an upload that
+        // lands between the two reads correctly forces a rebuild.
+        const existing = yield* repo.getDownload(event.id)
         const photoCount = yield* repo.countUploadedPhotos(event.id)
         if (photoCount === 0) return new DownloadStatus({ status: "none", photoCount })
-        const existing = yield* repo.getDownload(event.id)
         const isFreshReady = Option.isSome(existing) &&
           existing.value.status === "ready" &&
           existing.value.objectKey !== null &&
@@ -559,7 +582,9 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         const r2 = yield* R2
         const head = yield* r2.head(row.objectKey)
         if (Option.isNone(head)) return yield* _notFound()
-        const stream = yield* r2.getStream(row.objectKey).pipe(Effect.mapError(() => _notFound()))
+        const stream = yield* r2.getStream(row.objectKey).pipe(
+          Effect.catchTag("ObjectNotFound", () => _notFound())
+        )
         return HttpServerResponse.raw(stream, {
           status: 200,
           headers: {

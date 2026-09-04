@@ -16,12 +16,6 @@ import {
   UsedCount
 } from "./status.ts"
 
-export class Owner extends Schema.Class<Owner>("Owner")({
-  id: OwnerId,
-  passcodeHash: Schema.NonEmptyString,
-  createdAt: Schema.Date
-}) {}
-
 export class Event extends Schema.Class<Event>("Event")({
   id: EventId,
   ownerId: OwnerId,
@@ -71,12 +65,6 @@ export class Photo extends Schema.Class<Photo>("Photo")({
   filterPack: FilterPack,
   takenAt: Schema.Date,
   uploadedAt: Schema.Date
-}) {}
-
-export class PhotoUploadMeta extends Schema.Class<PhotoUploadMeta>("PhotoUploadMeta")({
-  uploadId: UploadId,
-  cameraId: CameraId,
-  takenAt: Schema.Date
 }) {}
 
 export class EventStatusUpdate extends Schema.Class<EventStatusUpdate>("EventStatusUpdate")({

@@ -48,7 +48,7 @@ export const LogoutHost = HttpApiEndpoint.post("logoutHost", "/host/logout", {
 export const GetEvent = HttpApiEndpoint.get("getEvent", "/events/:slug", {
   params: SlugParams,
   success: EventPublic,
-  error: HttpApiError.NotFound
+  error: [HttpApiError.NotFound, RateLimitExceeded]
 })
 
 export const CreateEvent = HttpApiEndpoint.post("createEvent", "/events", {

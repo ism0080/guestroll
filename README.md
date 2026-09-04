@@ -23,9 +23,7 @@ GUEST_DOMAIN=app.example.com
 `HOST_PASSCODE` is stored as a Cloudflare secret binding. Alchemy generates and stores
 a separate stable session-signing secret. The domain variables are optional; when
 omitted, Alchemy uses the Workers' generated `workers.dev` URLs. The host origin
-controls credentialed host API requests.
-Host requests must use `credentials: "include"`; the secure cross-site cookie uses
-`SameSite=None` and requires HTTPS outside local test clients.
+controls which origins may call the API.
 
 ## Checks
 
@@ -61,9 +59,12 @@ the prompt appears normally.
 
 ## API Notes
 
-- `POST /host/login` accepts the owner passcode and sets a 30-day `HttpOnly`, `Secure`,
-  `SameSite=None` cookie. All host mutations, including logout, require the exact host
-  origin and a valid session.
+- `POST /host/login` accepts the owner passcode and returns a signed 30-day
+  session bearer token (plus a server-side `host_sessions` row). The dashboard
+  sends it as `Authorization: Bearer …` on every request — no cookies, so
+  third-party-cookie blocking (Safari ITP) cannot break the dashboard.
+  `POST /host/logout` revokes the session server-side. All host mutations
+  require the exact host origin (when configured) and a valid session.
 - Guest camera creation and photo uploads are rate limited by Cloudflare.
 - Uploads accept one JPEG, PNG, or WebP file up to 2 MiB plus an optional thumbnail,
   `cameraId`, `takenAt`, and a client-generated UUID `uploadId`. Retrying the same

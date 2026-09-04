@@ -32,7 +32,7 @@ export interface PhotoPageQuery {
   readonly cursorId?: string
 }
 
-/** Promise-based host API. Uses `credentials: "include"` to send the session cookie. */
+/** Promise-based host API. Sends the session bearer via `getHeader`. */
 export interface HostClient {
   readonly login: (passcode: string) => Promise<HostSession>
   readonly logout: () => Promise<HostSession>

@@ -18,8 +18,11 @@ const DB_VERSION = 1
 const STORE = "queue"
 const SYNC_TAG = "guestroll-uploads"
 
-// App-shell cache. Bump the name to invalidate after a breaking deploy.
-const SHELL_CACHE = "guestroll-shell-v1"
+// App-shell cache. Versioned from the registering URL's build query
+// (`/sw.js?v=<build>`), so every deploy installs a fresh cache with no
+// manual version bumps.
+const SW_VERSION = new URL(self.location.href).searchParams.get("v") ?? "legacy"
+const SHELL_CACHE = `guestroll-shell-${SW_VERSION}`
 
 // Known shell files; the hashed JS/CSS bundles are cached at runtime on the
 // first SW-controlled load.

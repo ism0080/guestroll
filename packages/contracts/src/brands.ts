@@ -2,7 +2,7 @@ import { Schema } from "effect"
 
 const _id = (name: string) => Schema.NonEmptyString.pipe(Schema.brand(name))
 
-const EventSlugPattern = /^[A-Za-z0-9]{16}$/
+export const EventSlugPattern = /^[A-Za-z0-9]{16}$/
 
 export const OwnerId = _id("OwnerId")
 export type OwnerId = typeof OwnerId.Type

@@ -1,6 +1,8 @@
 import {
   ApiError,
   createHostClient,
+  LocalApiBase,
+  LocalGuestBase,
   type CreateEventInput,
   type HostClient,
   type PhotoPageQuery
@@ -23,25 +25,79 @@ const envGuestBase: string | undefined = import.meta.env.VITE_GUEST_BASE
  * Alchemy (`VITE_API_BASE`, `VITE_GUEST_BASE`); falls back to local dev
  * servers for standalone `vite dev`.
  */
-export const apiBase: string = envApiBase ?? "http://localhost:8787"
-export const guestBase: string = envGuestBase ?? "http://localhost:5174"
+export const apiBase: string = envApiBase ?? LocalApiBase
+export const guestBase: string = envGuestBase ?? LocalGuestBase
 
 export { ApiError }
 
+/**
+ * The host session lives in `sessionStorage` and travels as an
+ * `Authorization: Bearer` header on every request. Cookies are not used at
+ * all, so the dashboard keeps working when third-party cookies are blocked
+ * (Safari ITP and friends) and CSRF has no ambient credentials to ride on.
+ */
+const SessionTokenKey = "guestroll.hostToken"
+
+const _readToken = (): string | undefined => {
+  try {
+    return window.sessionStorage.getItem(SessionTokenKey) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Persists the host session token for the current tab. */
+export const storeSessionToken = (token: string): void => {
+  try {
+    window.sessionStorage.setItem(SessionTokenKey, token)
+  } catch {
+    // Storage unavailable: the session simply lasts until the next login.
+  }
+}
+
+/** Drops the local session token (after login failure or logout). */
+export const clearSessionToken = (): void => {
+  try {
+    window.sessionStorage.removeItem(SessionTokenKey)
+  } catch {
+    // Nothing to clean up.
+  }
+}
+
+export const hasSessionToken = (): boolean => _readToken() !== undefined
+
+/** Headers that authenticate host requests (empty when signed out). */
+export const authHeaders = (): Record<string, string> => {
+  const token = _readToken()
+  return token === undefined ? {} : { authorization: `Bearer ${token}` }
+}
+
 let _client: Promise<HostClient> | undefined
 
-/**
- * Lazily builds the type-safe host client from the SDK. The session cookie
- * is sent with every call (`credentials: "include"`).
- */
+/** Lazily builds the type-safe host client, attaching the bearer header. */
 export const hostClient = (): Promise<HostClient> =>
-  (_client ??= createHostClient({ baseUrl: apiBase, credentials: "include" }))
+  (_client ??= createHostClient({
+    baseUrl: apiBase,
+    credentials: "omit",
+    getHeader: () => {
+      const token = _readToken()
+      return token === undefined ? undefined : ["authorization", `Bearer ${token}`]
+    }
+  }))
 
-export const login = (passcode: string): Promise<HostSession> =>
-  hostClient().then((client) => client.login(passcode))
+export const login = async (passcode: string): Promise<HostSession> => {
+  const session = await hostClient().then((client) => client.login(passcode))
+  if (session.token !== undefined) storeSessionToken(session.token)
+  return session
+}
 
-export const logout = (): Promise<HostSession> =>
-  hostClient().then((client) => client.logout())
+export const logout = async (): Promise<HostSession> => {
+  try {
+    return await hostClient().then((client) => client.logout())
+  } finally {
+    clearSessionToken()
+  }
+}
 
 export const createEvent = (input: CreateEventInput): Promise<EventPublic> =>
   hostClient().then((client) => client.createEvent(input))
@@ -86,7 +142,7 @@ export const requestDownload = (slug: string): Promise<DownloadStatus> =>
 export const getDownloadStatus = (slug: string): Promise<DownloadStatus> =>
   hostClient().then((client) => client.getDownloadStatus(slug))
 
-/** URL of the event's "download all" ZIP. Host-only; requires the session cookie. */
+/** URL of the event's "download all" ZIP. Host-only; needs the bearer header. */
 export const downloadFileUrl = (slug: string): string =>
   `${apiBase}/events/${encodeURIComponent(slug)}/download`
 
@@ -98,13 +154,19 @@ export interface SessionSnapshot {
   readonly events: ReadonlyArray<EventPublic>
 }
 
-/** Probes the session by listing events; a 401 means "not signed in". */
+/**
+ * Probes the session by listing events. Without a stored token the guest is
+ * simply signed out; a 401 means the stored token was revoked or expired,
+ * so it is dropped and the dashboard shows the login screen again.
+ */
 export const loadSession = async (): Promise<SessionSnapshot> => {
+  if (!hasSessionToken()) return { authenticated: false, events: [] }
   try {
     const events = await listEvents()
     return { authenticated: true, events }
   } catch (error) {
     if (error instanceof ApiError && error.kind === "unauthorized") {
+      clearSessionToken()
       return { authenticated: false, events: [] }
     }
     throw error
@@ -116,33 +178,52 @@ export const fetchAllEventPhotos = async (
   slug: string,
   previous: ReadonlyArray<HostPhoto> = []
 ): Promise<ReadonlyArray<HostPhoto>> => {
-  const previousNewest = previous[0]
-  const photos: HostPhoto[] = []
+  const known = new Set(previous.map((photo) => photo.id))
+  const fresh: HostPhoto[] = []
   let cursor: PhotoPageQuery | undefined
   for (let page = 0; page < 100; page += 1) {
     const pageData = await listEventPhotos(slug, { limit: 100, ...cursor })
+    let reachedKnown = false
     for (const photo of pageData.photos) {
-      if (previousNewest !== undefined && photo.id === previousNewest.id) {
-        return [...photos, ...previous]
+      // Walk until the pages overlap what the dashboard already holds, then
+      // prepend just the new photos — deletions are not possible per-photo,
+      // so the merged list stays accurate without a full refetch.
+      if (known.has(photo.id)) {
+        reachedKnown = true
+        continue
       }
-      photos.push(photo)
+      fresh.push(photo)
     }
-    if (pageData.nextCursor === undefined) return photos
+    if (reachedKnown || pageData.nextCursor === undefined) break
     cursor = {
       cursorUploadedAt: pageData.nextCursor.uploadedAt,
       cursorId: pageData.nextCursor.id
     }
   }
-  const seen = new Set(photos.map((photo) => photo.id))
-  return [...photos, ...previous.filter((photo) => !seen.has(photo.id))]
+  return [...fresh, ...previous]
 }
 
 export const photoThumbUrl = (slug: string, photoId: string): string =>
   `${apiBase}/events/${encodeURIComponent(slug)}/photos/${encodeURIComponent(photoId)}/thumb`
 
-/** URL of a photo's bytes for the dashboard. Host-only; requires the session cookie. */
+/** URL of a photo's bytes for the dashboard. Host-only; needs the bearer header. */
 export const photoImageUrl = (slug: string, photoId: string): string =>
   `${apiBase}/events/${encodeURIComponent(slug)}/photos/${encodeURIComponent(photoId)}`
+
+/** Fetches a host-only asset with the session bearer and returns its status. */
+export const authorizedFetch = (url: string): Promise<Response> =>
+  fetch(url, { headers: authHeaders() })
+
+/**
+ * Fetches a host-only asset with the session bearer header and returns a
+ * blob object URL for `<img>` tags (which cannot set headers themselves).
+ */
+export const fetchObjectUrl = async (url: string): Promise<string> => {
+  const response = await authorizedFetch(url)
+  if (!response.ok) throw new Error(`Asset request failed with status ${response.status}`)
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
 
 const _extensionForContentType = (contentType: string): string => {
   if (contentType === "image/png") return "png"
@@ -152,12 +233,11 @@ const _extensionForContentType = (contentType: string): string => {
 
 /**
  * Downloads a single photo's bytes via the host-only photo endpoint
- * (session cookie via `credentials: "include"`) and saves it with a
- * per-photo filename. The archived bytes are originals; when a filter pack
- * is passed the shared ImageData pipeline bakes it into the saved file so
- * the download matches the filtered grid. On mobile the native share sheet
- * is used so the photo can be saved straight to the camera roll; elsewhere
- * an anchor download is used.
+ * (bearer header) and saves it with a per-photo filename. The archived
+ * bytes are originals; when a filter pack is passed the shared ImageData
+ * pipeline bakes it into the saved file so the download matches the
+ * filtered grid. On mobile the native share sheet is used so the photo can
+ * be saved straight to the camera roll; elsewhere an anchor download is used.
  */
 export const downloadSinglePhoto = async (
   slug: string,
@@ -165,7 +245,7 @@ export const downloadSinglePhoto = async (
   filterPack?: string
 ): Promise<void> => {
   const { saveBlob } = await import("./share.ts")
-  const response = await fetch(photoImageUrl(slug, photoId), { credentials: "include" })
+  const response = await authorizedFetch(photoImageUrl(slug, photoId))
   if (!response.ok) throw new Error(`Photo download failed with status ${response.status}`)
   const original = await response.blob()
   const filename = `${slug}-${photoId}${filterPack !== undefined && filterPack !== "none" ? "-filtered" : ""}.${_extensionForContentType(original.type)}`

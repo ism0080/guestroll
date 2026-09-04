@@ -71,3 +71,11 @@ export const downloads = sqliteTable("downloads", {
 }, (table) => [
   check("downloads_status_valid", sql`${table.status} IN ('building', 'ready', 'error')`)
 ])
+
+export const hostSessions = sqliteTable("host_sessions", {
+  id: text("id").primaryKey(),
+  createdAt: text("createdAt").notNull(),
+  expiresAt: text("expiresAt").notNull()
+}, (table) => [
+  index("host_sessions_expires_at_idx").on(table.expiresAt)
+])

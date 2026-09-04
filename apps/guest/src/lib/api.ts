@@ -1,4 +1,4 @@
-import { ApiError, createGuestClient, type GuestClient } from "@guestroll/sdk"
+import { ApiError, createGuestClient, LocalApiBase, type GuestClient } from "@guestroll/sdk"
 import type { CameraCreateResult, EventPublic, UploadResult } from "@guestroll/contracts"
 
 const envApiBase: string | undefined = import.meta.env.VITE_API_BASE
@@ -8,7 +8,7 @@ const envApiBase: string | undefined = import.meta.env.VITE_API_BASE
  * (`VITE_API_BASE`); falls back to the local Worker dev server for
  * standalone `vite dev`.
  */
-export const apiBase: string = envApiBase ?? "http://localhost:8787"
+export const apiBase: string = envApiBase ?? LocalApiBase
 
 export { ApiError }
 

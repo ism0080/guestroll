@@ -26,6 +26,11 @@ export default Alchemy.Stack(
     const guestDomain = Option.getOrUndefined(yield* Config.option(Config.string("GUEST_DOMAIN")))
     const hostDomain = Option.getOrUndefined(yield* Config.option(Config.string("HOST_DOMAIN")))
     const zoneName = Option.getOrUndefined(yield* Config.option(Config.string("ZONE_NAME")))
+    if ((apiDomain ?? guestDomain ?? hostDomain) !== undefined && zoneName === undefined) {
+      return yield* Effect.die(
+        new Error("ZONE_NAME is required when API_DOMAIN, GUEST_DOMAIN, or HOST_DOMAIN is set")
+      )
+    }
     const bucket = yield* Bucket
     const database = yield* Database
     const api = yield* ApiWorker(
