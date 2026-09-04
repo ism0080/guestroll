@@ -10,10 +10,7 @@ import { R2 } from "./storage.ts"
 /** A build that has been running longer than this is treated as stalled. */
 export const DownloadBuildTimeoutMs = 10 * 60 * 1000
 
-const _nowDate: Effect.Effect<Date, never, Clock.Clock> = Effect.map(
-  Clock.currentTimeMillis,
-  (ms) => new Date(ms)
-)
+const _nowDate = Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
 export interface ZipBuildResult {
   readonly objectKey: ObjectKey
@@ -96,7 +93,7 @@ export const buildEventZip = (
  */
 export const runDownloadBuild = (
   eventId: EventId
-): Effect.Effect<void, never, R2 | WorkerEnv | D1Client.D1Client | Clock.Clock> =>
+): Effect.Effect<void, never, R2 | WorkerEnv | D1Client.D1Client> =>
   Effect.gen(function* () {
     const photos = yield* repo.listUploadedPhotos(eventId)
     const exit = yield* buildEventZip(eventId, photos).pipe(Effect.sandbox, Effect.exit)

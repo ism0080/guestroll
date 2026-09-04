@@ -1,5 +1,4 @@
 import * as Cloudflare from "alchemy/Cloudflare"
-import type { HttpEffect } from "alchemy/Http"
 import { AppLive, ApiApp, Background, type BackgroundDeps, WorkerEnv } from "@guestroll/api"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -41,7 +40,10 @@ export const ApiWorkerProgram = Effect.gen(function* () {
 
   const BackgroundLive = Layer.succeed(Background, {
     // SAFETY: Alchemy runs the Effect with the active request context before
-    // registering its promise with the Worker's native `ctx.waitUntil`.
+    // registering its promise with the Worker's native `ctx.waitUntil`. The
+    // returned effect's `RuntimeContext` requirement cannot be named here
+    // (alchemy-owned service), so the exact `BackgroundDeps` shape is
+    // restored at this infra boundary.
     waitUntil: ((effect) => exec.waitUntil(effect)) as BackgroundDeps["waitUntil"]
   })
 
@@ -75,12 +77,10 @@ export const ApiWorkerProgram = Effect.gen(function* () {
   )
 
   return {
-    // SAFETY: the router is built with the Worker HTTP services above; the
-    // remaining request services are supplied by the per-worker layer.
     fetch: Effect.provide(
       fetchEffect,
       Layer.provideMerge(Layer.mergeAll(AppLive, BackgroundLive), WorkerEnvLive)
-    ) as HttpEffect
+    )
   }
 })
 

@@ -141,10 +141,7 @@ const _downloadStatus = (row: repo.DownloadRow, photoCount: number): DownloadSta
     updatedAt: new Date(row.updatedAt)
   })
 
-const _nowDate: Effect.Effect<Date, never, Clock.Clock> = Effect.map(
-  Clock.currentTimeMillis,
-  (ms) => new Date(ms)
-)
+const _nowDate = Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
 const _requiredField = (
   parts: ReadonlyArray<Multipart.Part>,

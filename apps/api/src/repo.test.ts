@@ -20,8 +20,11 @@ import {
 import { WorkerEnv, type GuestrollCrypto } from "./env.ts"
 import * as repo from "./repo.ts"
 
-// SAFETY: Bun's Web Crypto implements the methods Guestroll uses.
-const testCrypto = webcrypto as GuestrollCrypto
+const testCrypto: GuestrollCrypto = {
+  getRandomValues: (array) => webcrypto.getRandomValues(array),
+  randomUUID: () => webcrypto.randomUUID(),
+  subtle: webcrypto.subtle
+}
 
 const WorkerEnvTest = Layer.succeed(WorkerEnv, {
   DB:
@@ -113,7 +116,7 @@ const _run = <A, E>(
 const _newDatabase = (): SqliteDatabase => {
   const sqlite = new SqliteDatabase(":memory:")
   const migrationsDir = new URL("../../../migrations/", import.meta.url)
-  for (const entry of readdirSync(migrationsDir).sort()) {
+  for (const entry of readdirSync(migrationsDir).toSorted()) {
     const sql = readFileSync(new URL(`${entry}/migration.sql`, migrationsDir), "utf8")
     for (const statement of sql.split("--> statement-breakpoint")) {
       if (statement.trim() === "") continue

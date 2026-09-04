@@ -57,7 +57,7 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
                     </div>
                   }
                 >
-                  <img src={qr()!} alt={`QR code for ${props.title}`} class="h-64 w-64" />
+                  {(value) => <img src={value()} alt={`QR code for ${props.title}`} class="h-64 w-64" />}
                 </Show>
               </div>
 
@@ -99,7 +99,7 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
                       when={qr()}
                       fallback={<div class="table-card-qr table-card-qr-placeholder" />}
                     >
-                      <img src={qr()!} alt="" class="table-card-qr" />
+                      {(value) => <img src={value()} alt="" class="table-card-qr" />}
                     </Show>
                   </div>
                   <div class="table-card-text">Scan to add your photos</div>

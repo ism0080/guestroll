@@ -32,6 +32,10 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
 }
 
+interface WindowEventMap {
+  beforeinstallprompt: BeforeInstallPromptEvent
+}
+
 /**
  * Background Sync API. Not in the DOM lib yet; `sync` is absent on browsers
  * without support, so it's optional and guarded at runtime.

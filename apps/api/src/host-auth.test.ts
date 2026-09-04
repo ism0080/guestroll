@@ -5,8 +5,11 @@ import type { GuestrollCrypto } from "./env.ts"
 import { makeHostAuth } from "./host-auth.ts"
 import { isAllowedOrigin } from "./handlers.ts"
 
-// SAFETY: Bun's Web Crypto implements the three standard methods used by HostAuth.
-const testCrypto = webcrypto as GuestrollCrypto
+const testCrypto: GuestrollCrypto = {
+  getRandomValues: (array) => webcrypto.getRandomValues(array),
+  randomUUID: () => webcrypto.randomUUID(),
+  subtle: webcrypto.subtle
+}
 const auth = makeHostAuth("correct horse", "test-session-secret", testCrypto)
 
 describe("host authentication", () => {

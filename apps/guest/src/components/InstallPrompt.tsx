@@ -47,12 +47,9 @@ export const InstallPrompt = (): JSX.Element => {
       setIosVisible(true)
     }
 
-    const onPrompt = (event: Event): void => {
+    const onPrompt = (event: BeforeInstallPromptEvent): void => {
       event.preventDefault()
-      // SAFETY: `beforeinstallprompt` events are Chromium's
-      // `BeforeInstallPromptEvent`, which augments `Event` with `prompt` and
-      // `userChoice`; the DOM lib does not model it.
-      deferred = event as BeforeInstallPromptEvent
+      deferred = event
       setInstallable(true)
     }
     const onInstalled = (): void => {

@@ -3,30 +3,29 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError"
 import * as HttpApiError from "effect/unstable/httpapi/HttpApiError"
 import { RateLimitExceeded, UploadContentMismatchError } from "@guestroll/contracts"
 
-export type ApiErrorKind =
-  | "not-found"
-  | "forbidden"
-  | "conflict"
-  | "rate-limited"
-  | "bad-request"
-  | "content-mismatch"
-  | "unauthorized"
-  | "network"
-  | "bad-response"
-  | "unknown"
+/**
+ * Error surfaced by the SDK facades, mapping Effect failures to app-friendly
+ * kinds. Tagged (not a bare `Error`) so it stays distinguishable inside
+ * Effect failure channels.
+ */
+export class ApiError extends Schema.TaggedError<ApiError>()("ApiError", {
+  kind: Schema.Literals([
+    "not-found",
+    "forbidden",
+    "conflict",
+    "rate-limited",
+    "bad-request",
+    "content-mismatch",
+    "unauthorized",
+    "network",
+    "bad-response",
+    "unknown"
+  ]),
+  message: Schema.String,
+  status: Schema.optional(Schema.Int)
+}) {}
 
-/** Error surfaced by the SDK facades, mapping Effect failures to app-friendly kinds. */
-export class ApiError extends Error {
-  readonly kind: ApiErrorKind
-  readonly status: number | undefined
-
-  constructor(kind: ApiErrorKind, message: string, status?: number) {
-    super(message)
-    this.name = "ApiError"
-    this.kind = kind
-    this.status = status
-  }
-}
+export type ApiErrorKind = ApiError["kind"]
 
 /** The union of failures a generated client method can raise for this API. */
 export type ApiClientError =
@@ -66,25 +65,25 @@ export const toApiError = (error: ApiClientError): ApiError => {
   if (error instanceof HttpClientError.HttpClientError) {
     const reason = error.reason
     if (reason instanceof HttpClientError.TransportError) {
-      return new ApiError("network", "Could not reach the GuestRoll service")
+      return new ApiError({ kind: "network", message: "Could not reach the GuestRoll service" })
     }
     if (reason instanceof HttpClientError.StatusCodeError) {
       const status = reason.response.status
-      return new ApiError(_kindForStatus(status), `Request failed with status ${status}`, status)
+      return new ApiError({ kind: _kindForStatus(status), message: `Request failed with status ${status}`, status })
     }
-    return new ApiError("bad-response", "The GuestRoll service returned an unexpected response")
+    return new ApiError({ kind: "bad-response", message: "The GuestRoll service returned an unexpected response" })
   }
   if (error instanceof Schema.SchemaError) {
-    return new ApiError("bad-request", "Invalid value for the GuestRoll service")
+    return new ApiError({ kind: "bad-request", message: "Invalid value for the GuestRoll service" })
   }
-  if (Schema.is(RateLimitExceeded)(error)) return new ApiError("rate-limited", "Too many requests. Please try again in a moment.", 429)
-  if (Schema.is(UploadContentMismatchError)(error)) return new ApiError("content-mismatch", "That photo could not be saved. Please retake it.", 422)
-  if (Schema.is(HttpApiError.Unauthorized)(error)) return new ApiError("unauthorized", "Not signed in", 401)
-  if (Schema.is(HttpApiError.Forbidden)(error)) return new ApiError("forbidden", "Not allowed", 403)
-  if (Schema.is(HttpApiError.NotFound)(error)) return new ApiError("not-found", "Not found", 404)
-  if (Schema.is(HttpApiError.BadRequest)(error)) return new ApiError("bad-request", "Bad request", 400)
-  if (Schema.is(HttpApiError.Conflict)(error)) return new ApiError("conflict", "Already handled", 409)
-  return new ApiError("unknown", "An unexpected error occurred")
+  if (Schema.is(RateLimitExceeded)(error)) return new ApiError({ kind: "rate-limited", message: "Too many requests. Please try again in a moment.", status: 429 })
+  if (Schema.is(UploadContentMismatchError)(error)) return new ApiError({ kind: "content-mismatch", message: "That photo could not be saved. Please retake it.", status: 422 })
+  if (Schema.is(HttpApiError.Unauthorized)(error)) return new ApiError({ kind: "unauthorized", message: "Not signed in", status: 401 })
+  if (Schema.is(HttpApiError.Forbidden)(error)) return new ApiError({ kind: "forbidden", message: "Not allowed", status: 403 })
+  if (Schema.is(HttpApiError.NotFound)(error)) return new ApiError({ kind: "not-found", message: "Not found", status: 404 })
+  if (Schema.is(HttpApiError.BadRequest)(error)) return new ApiError({ kind: "bad-request", message: "Bad request", status: 400 })
+  if (Schema.is(HttpApiError.Conflict)(error)) return new ApiError({ kind: "conflict", message: "Already handled", status: 409 })
+  return new ApiError({ kind: "unknown", message: "An unexpected error occurred" })
 }
 
 /** Runs a typed client effect and rejects with `ApiError` on failure. */
@@ -108,5 +107,5 @@ export const parse = <S extends Schema.ConstraintDecoder<unknown>>(
 ): S["Type"] =>
   Option.getOrThrowWith(
     Schema.decodeUnknownOption(schema)(value),
-    () => new ApiError("bad-request", message)
+    () => new ApiError({ kind: "bad-request", message })
   )

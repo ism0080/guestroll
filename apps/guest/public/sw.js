@@ -40,8 +40,8 @@ const openDb = () =>
         db.createObjectStore(STORE, { keyPath: "id" })
       }
     }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
+    request.addEventListener("success", () => resolve(request.result))
+    request.addEventListener("error", () => reject(request.error))
   })
 
 const getAllRecords = async () => {
@@ -49,8 +49,8 @@ const getAllRecords = async () => {
   try {
     return await new Promise((resolve, reject) => {
       const request = db.transaction(STORE, "readonly").objectStore(STORE).getAll()
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
+      request.addEventListener("success", () => resolve(request.result))
+      request.addEventListener("error", () => reject(request.error))
     })
   } finally {
     db.close()
@@ -63,9 +63,9 @@ const runWrite = async (operation) => {
     await new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE, "readwrite")
       operation(transaction.objectStore(STORE))
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-      transaction.onabort = () => reject(transaction.error)
+      transaction.addEventListener("complete", () => resolve())
+      transaction.addEventListener("error", () => reject(transaction.error))
+      transaction.addEventListener("abort", () => reject(transaction.error))
     })
   } finally {
     db.close()
@@ -78,10 +78,11 @@ const deleteRecord = (id) => runWrite((store) => store.delete(id))
 
 const broadcast = (message) => {
   self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-    // Client.postMessage accepts a transfer list/options, not a target origin
-    // (the latter belongs to Window.postMessage). Supplying the origin throws
-    // and leaves the page's queue count stale after a successful upload.
-    for (const client of clients) client.postMessage(message)
+    // Passes an empty transfer list: Client.postMessage takes a transfer
+    // list/options, not a target origin (that belongs to Window.postMessage).
+    // Supplying an origin throws and leaves the page's queue count stale
+    // after a successful upload.
+    for (const client of clients) client.postMessage(message, [])
   })
 }
 

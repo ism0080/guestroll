@@ -15,8 +15,11 @@ import { buildEventZip } from "./download.ts"
 import { WorkerEnv, type GuestrollCrypto } from "./env.ts"
 import { ObjectNotFound, R2, type R2Deps } from "./storage.ts"
 
-// SAFETY: Bun's Web Crypto implements the three methods Guestroll uses.
-const testCrypto = webcrypto as GuestrollCrypto
+const testCrypto: GuestrollCrypto = {
+  getRandomValues: (array) => webcrypto.getRandomValues(array),
+  randomUUID: () => webcrypto.randomUUID(),
+  subtle: webcrypto.subtle
+}
 
 // SAFETY: the test build path only reads `env.CRYPTO`; the remaining bindings
 // are placeholders that are never touched.

@@ -150,9 +150,7 @@ export const getZoomRange = (stream: MediaStream): ZoomRange | null => {
   const max = zoom.max
   const settings = video.getSettings()
   const rawZoom = settings.zoom
-  // SAFETY: `Number.isFinite` rules out undefined/NaN, leaving only the
-  // finite number the spec defines for `zoom`.
-  const current = Number.isFinite(rawZoom) ? (rawZoom as number) : min
+  const current = rawZoom === undefined || !Number.isFinite(rawZoom) ? min : rawZoom
   if (!(max > min)) return null
   const step = zoom.step && zoom.step > 0 ? zoom.step : (max - min) / 20
   return {
@@ -193,9 +191,7 @@ export const getFocusInfo = (stream: MediaStream): FocusInfo => {
   if (min === undefined || max === undefined) return { modes, distance: null }
   const settings = video.getSettings()
   const rawDistance = settings.focusDistance
-  // SAFETY: `Number.isFinite` rules out undefined/NaN, leaving only the
-  // finite number the spec defines for `focusDistance`.
-  const focusValue = Number.isFinite(rawDistance) ? (rawDistance as number) : min
+  const focusValue = rawDistance === undefined || !Number.isFinite(rawDistance) ? min : rawDistance
   const distance: ZoomRange = {
     min,
     max,

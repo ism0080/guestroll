@@ -185,6 +185,27 @@
         "core/no-single-use-private-functions": "error",
         "core/private-function-prefix": "error"
       }
+    },
+    {
+      "files": [
+        "**/*.test.ts",
+        "packages/sdk/src/client.ts",
+        "infra/ApiWorker.ts"
+      ],
+      "rules": {
+        "effecttsgo/strict-effect-provide": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/api/src/repo.test.ts",
+        "apps/api/src/download.test.ts",
+        "apps/api/src/storage.ts",
+        "infra/ApiWorker.ts"
+      ],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
     }
   ],
   "ignorePatterns": [

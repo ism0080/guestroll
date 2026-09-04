@@ -1,4 +1,5 @@
 import type { UploadResult } from "@guestroll/contracts"
+import { Option, Schema } from "effect"
 import { apiBase, uploadPhoto, type UploadPhotoInput } from "./api"
 
 export const SYNC_TAG = "guestroll-uploads"
@@ -71,8 +72,8 @@ const _openDb = (): Promise<IDBDatabase> =>
         db.createObjectStore(STORE, { keyPath: "id" })
       }
     }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
+    request.addEventListener("success", () => resolve(request.result))
+    request.addEventListener("error", () => reject(request.error))
   })
 
 const _runWrite = async (operation: (store: IDBObjectStore) => void): Promise<void> => {
@@ -81,9 +82,9 @@ const _runWrite = async (operation: (store: IDBObjectStore) => void): Promise<vo
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(STORE, "readwrite")
       operation(transaction.objectStore(STORE))
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
-      transaction.onabort = () => reject(transaction.error)
+      transaction.addEventListener("complete", () => resolve())
+      transaction.addEventListener("error", () => reject(transaction.error))
+      transaction.addEventListener("abort", () => reject(transaction.error))
     })
   } finally {
     db.close()
@@ -100,7 +101,7 @@ export const wakeWorker = async (): Promise<void> => {
   try {
     const registration = await navigator.serviceWorker.ready
     const worker = registration.active ?? navigator.serviceWorker.controller
-    worker?.postMessage({ type: "wake" })
+    worker?.postMessage({ type: "wake" }, [])
     if (registration.sync) registration.sync.register(SYNC_TAG).catch(() => {})
   } catch {
     // Registration/activation failures are handled by the direct path in `submitPhoto`.
@@ -139,11 +140,11 @@ export const retryFailedUploads = async (): Promise<number> => {
   const db = await _openDb()
   try {
     const records = await new Promise<readonly QueueRecord[]>((resolve, reject) => {
-      const request = db.transaction(STORE, "readonly").objectStore(STORE).getAll()
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    const failed = records.filter((record) => record.status === "failed")
+    const request = db.transaction(STORE, "readonly").objectStore(STORE).getAll()
+    request.addEventListener("success", () => resolve(request.result))
+    request.addEventListener("error", () => reject(request.error))
+  })
+  const failed = records.filter((record) => record.status === "failed")
     await _runWrite((store) => {
       for (const record of failed) store.put({ ...record, status: "queued", attempts: 0, nextAttemptAt: 0 })
     })
@@ -165,11 +166,11 @@ export const readQueueState = async (cameraId?: string): Promise<QueueState> => 
   }
   try {
     const records = await new Promise<readonly QueueRecord[]>((resolve, reject) => {
-      const request = db.transaction(STORE, "readonly").objectStore(STORE).getAll()
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-    let pending = 0
+    const request = db.transaction(STORE, "readonly").objectStore(STORE).getAll()
+    request.addEventListener("success", () => resolve(request.result))
+    request.addEventListener("error", () => reject(request.error))
+  })
+  let pending = 0
     let failed = 0
     for (const record of records) {
       if (cameraId !== undefined && record.cameraId !== cameraId) continue
@@ -182,15 +183,25 @@ export const readQueueState = async (cameraId?: string): Promise<QueueState> => 
   }
 }
 
+/** Runtime check that a service-worker payload is a `WorkerMessage`. */
+const WorkerMessageSchema = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literals(["uploaded"]),
+    cameraId: Schema.String,
+    usedCount: Schema.Number,
+    photoLimit: Schema.Number
+  }),
+  Schema.Struct({ type: Schema.Literals(["conflict"]), cameraId: Schema.String }),
+  Schema.Struct({ type: Schema.Literals(["failed"]), uploadId: Schema.String }),
+  Schema.Struct({ type: Schema.Literals(["pending"]), pending: Schema.Number, failed: Schema.Number })
+])
+
 /** Subscribes to service-worker progress messages. Returns an unsubscribe. */
 export const onWorkerMessage = (handler: (message: WorkerMessage) => void): (() => void) => {
   if (!_workerEnabled()) return () => {}
-  const listener = (event: MessageEvent): void => {
-    // SAFETY: the upload worker only ever posts WorkerMessage-shaped payloads,
-    // and the `type` presence check below rules out primitives and null.
-    const data = event.data as WorkerMessage | null
-    if (data === null || !("type" in data)) return
-    handler(data)
+  const listener = (event: MessageEvent<unknown>): void => {
+    const message = Schema.decodeUnknownOption(WorkerMessageSchema)(event.data)
+    if (Option.isSome(message)) handler(message.value)
   }
   navigator.serviceWorker.addEventListener("message", listener)
   return () => navigator.serviceWorker.removeEventListener("message", listener)
