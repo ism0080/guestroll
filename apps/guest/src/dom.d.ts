@@ -48,3 +48,16 @@ interface ServiceWorkerRegistration {
 interface Navigator {
   readonly standalone?: boolean
 }
+
+/** Barcode Detection API, supported by Chromium but not yet in TypeScript's DOM lib. */
+interface BarcodeDetector {
+  detect(source: ImageBitmapSource): Promise<ReadonlyArray<{ readonly rawValue?: string }>>
+}
+
+interface BarcodeDetectorConstructor {
+  new (options?: { readonly formats?: ReadonlyArray<string> }): BarcodeDetector
+}
+
+interface Window {
+  BarcodeDetector?: BarcodeDetectorConstructor
+}
