@@ -66,16 +66,16 @@ export const toApiError = (error: ApiClientError): ApiError => {
   if (error instanceof HttpClientError.HttpClientError) {
     const reason = error.reason
     if (reason instanceof HttpClientError.TransportError) {
-      return new ApiError("network", "Could not reach the Guestroll service")
+      return new ApiError("network", "Could not reach the GuestRoll service")
     }
     if (reason instanceof HttpClientError.StatusCodeError) {
       const status = reason.response.status
       return new ApiError(_kindForStatus(status), `Request failed with status ${status}`, status)
     }
-    return new ApiError("bad-response", "The Guestroll service returned an unexpected response")
+    return new ApiError("bad-response", "The GuestRoll service returned an unexpected response")
   }
   if (error instanceof Schema.SchemaError) {
-    return new ApiError("bad-request", "Invalid value for the Guestroll service")
+    return new ApiError("bad-request", "Invalid value for the GuestRoll service")
   }
   if (Schema.is(RateLimitExceeded)(error)) return new ApiError("rate-limited", "Too many requests. Please try again in a moment.", 429)
   if (Schema.is(UploadContentMismatchError)(error)) return new ApiError("content-mismatch", "That photo could not be saved. Please retake it.", 422)

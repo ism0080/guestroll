@@ -11,9 +11,9 @@ export default createHandler(() => (
           <meta name="theme-color" content="#f6f2e9" />
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-title" content="Guestroll" />
+          <meta name="apple-mobile-web-app-title" content="GuestRoll" />
           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <meta name="description" content="Guestroll — a disposable camera for your wedding guests" />
+          <meta name="description" content="GuestRoll — a disposable camera for your wedding guests" />
           <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
           <link rel="manifest" href="/manifest.webmanifest" />
           <link rel="apple-touch-icon" href="/icons/icon-192.png" />

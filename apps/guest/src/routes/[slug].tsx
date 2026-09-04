@@ -354,7 +354,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
 
       <Show when={phase() === "done"}>
         <DoneScreen
-          title={eventQuery.data?.title ?? "the couple"}
+          title={eventQuery.data?.title ?? "the host"}
           count={doneCount()}
           pending={pendingCount() + savingCount()}
           starting={createCameraMutation.isPending}

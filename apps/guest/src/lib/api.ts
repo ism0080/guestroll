@@ -4,7 +4,7 @@ import type { CameraCreateResult, EventPublic, UploadResult } from "@guestroll/c
 const envApiBase: string | undefined = import.meta.env.VITE_API_BASE
 
 /**
- * Base URL of the Guestroll API Worker. Inlined at build time by Alchemy
+ * Base URL of the GuestRoll API Worker. Inlined at build time by Alchemy
  * (`VITE_API_BASE`); falls back to the local Worker dev server for
  * standalone `vite dev`.
  */

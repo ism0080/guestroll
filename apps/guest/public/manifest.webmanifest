@@ -1,7 +1,7 @@
 {
-  "name": "Guestroll — Wedding Camera",
-  "short_name": "Guestroll",
-  "description": "The couple's disposable camera — snap a few shots and share the moment.",
+  "name": "GuestRoll — Wedding Camera",
+  "short_name": "GuestRoll",
+  "description": "Disposable camera — snap a few shots and share the moment.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

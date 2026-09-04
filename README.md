@@ -1,6 +1,6 @@
-# Guestroll
+# GuestRoll
 
-Guestroll is a personal wedding photo collector built with Effect, Cloudflare Workers,
+GuestRoll is a personal wedding photo collector built with Effect, Cloudflare Workers,
 D1, R2, and Alchemy. Guests receive an event link, create an anonymous camera, and
 upload a limited number of photos. Host endpoints use a signed, HTTP-only session
 cookie and never expose a public gallery.

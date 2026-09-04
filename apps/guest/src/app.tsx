@@ -21,7 +21,7 @@ export default function App() {
       <Router
         root={(props) => (
           <MetaProvider>
-            <Title>Guestroll</Title>
+            <Title>GuestRoll</Title>
             <div class="min-h-dvh bg-base-200">
               <Suspense>{props.children}</Suspense>
             </div>

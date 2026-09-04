@@ -5,7 +5,7 @@ import * as Output from "alchemy/Output"
  * The host dashboard — a SolidStart SPA (client-side rendering only) deployed
  * as a Cloudflare Worker with static assets, mirroring the guest PWA. The API
  * Worker's URL is inlined as `import.meta.env.VITE_API_BASE` at build time, and
- * the guest PWA's URL as `VITE_GUEST_BASE` so the couple can copy share links.
+ * the guest PWA's URL as `VITE_GUEST_BASE` so the host can copy share links.
  */
 export const Host = (
   apiUrl: Output.Output<string | undefined>,

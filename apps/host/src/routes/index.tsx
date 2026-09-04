@@ -198,14 +198,14 @@ const Home = (): JSX.Element => {
       </Show>
 
       <Show when={state() === "dashboard"}>
-        <Title>Guestroll</Title>
+        <Title>GuestRoll</Title>
         <div class="mx-auto max-w-5xl px-4 py-8">
           <header class="mb-8 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <CameraBody class="w-16 shrink-0" />
               <div>
                 <p class="film-counter text-[11px] font-semibold uppercase tracking-[0.2em] text-secondary">
-                  Guestroll
+                  GuestRoll
                 </p>
                 <h1 class="text-2xl font-extrabold leading-tight">Your guest rolls</h1>
               </div>

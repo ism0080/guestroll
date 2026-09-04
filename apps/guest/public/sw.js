@@ -1,4 +1,4 @@
-// Guestroll upload service worker.
+// GuestRoll upload service worker.
 //
 // Owns the durable photo upload queue (IndexedDB) so guests can keep
 // snapping while their photos send in the background. Uploads retry with

@@ -23,7 +23,7 @@ export const LoginScreen = (props: LoginScreenProps): JSX.Element => {
           <CameraBody class="w-48 drop-shadow-[6px_6px_0_rgba(32,29,24,0.12)]" />
           <div>
             <p class="film-counter text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
-              Couple's dashboard
+              Host Dashboard
             </p>
             <h1 class="mt-1 text-3xl font-extrabold text-base-content">Welcome back</h1>
           </div>

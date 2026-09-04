@@ -94,7 +94,7 @@ export const InstallPrompt = (): JSX.Element => {
             <div class="flex flex-row items-center gap-3 p-4">
               <div class="flex-1 text-sm">
                 <p class="font-semibold">Snap like an app</p>
-                <p class="text-base-content/70">Install Guestroll for a full-screen camera.</p>
+                <p class="text-base-content/70">Install GuestRoll for a full-screen camera.</p>
               </div>
               <button
                 type="button"

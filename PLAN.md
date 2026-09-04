@@ -1,8 +1,8 @@
 # Wedding Disposable Camera — Implementation Plan
 
-Personal-use Guestroll-style wedding photo collector: guests scan a QR code, take a
-limited number of photos from a PWA camera (no app download), and the couple
-sees every photo afterward. Only the couple (hosts) ever views the photos —
+Personal-use GuestRoll-style wedding photo collector: guests scan a QR code, take a
+limited number of photos from a PWA camera (no app download), and the host
+sees every photo afterward. Only the hosts ever views the photos —
 there is no public gallery.
 
 ## Current status
@@ -36,8 +36,8 @@ there is no public gallery.
 ## Goal
 
 Multiple personal events (wedding, shower, bachelor party, etc.), still owned
-by one couple. Maximize reliability on the day. Minimize maintenance. Guests
-are anonymous (optional name only); only the couple logs in.
+by one host. Maximize reliability on the day. Minimize maintenance. Guests
+are anonymous (optional name only); only the host logs in.
 
 ## Decisions (locked)
 
@@ -49,7 +49,7 @@ are anonymous (optional name only); only the couple logs in.
   statically served, no SSR. Use the daisyUI skill for component generation.
 - **API:** Cloudflare Workers, **pure Effect v4** end to end.
 - **Reveal flow:** no public reveal. Guests upload only while an event is
-  `live`; the couple (hosts) are the only viewers, seeing photos as they come
+  `live`; the hosts are the only viewers, seeing photos as they come
   in. There is no approval step and no guest gallery.
 - **Infra:** Alchemy v2 (R2 + D1 + Worker bindings + asset hosting).
 - **Package manager:** **bun** (already used to scaffold + install; Alchemy and

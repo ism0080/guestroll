@@ -175,7 +175,7 @@ export const createEvent = (
         RETURNING id AS id`)
       if (inserted[0] !== undefined) return event
     }
-    return yield* Effect.die("Guestroll event identifier allocation failed after three attempts")
+    return yield* Effect.die("GuestRoll event identifier allocation failed after three attempts")
   })
 
 export const updateEventStatus = (

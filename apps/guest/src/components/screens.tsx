@@ -110,7 +110,7 @@ export const DoneScreen = (props: DoneScreenProps): JSX.Element => (
           </p>
         </Show>
         <p class="text-sm text-base-content/60">
-          Thanks for being part of the day — the couple will see every frame you captured.
+          Thanks for being part of the day — your hosts will see every frame you captured.
         </p>
 
         <Show when={props.error !== null && props.error !== undefined}>
@@ -156,7 +156,7 @@ const _heading = (kind: ErrorKind): string => {
 const _message = (kind: ErrorKind): string => {
   switch (kind) {
     case "not-ready":
-      return "The couple hasn't opened this camera roll yet. Try again when the event goes live."
+      return "The host hasn't opened this camera roll yet. Try again when the event goes live."
     case "network":
       return "Check your connection and give it another go — the moment is worth retrying."
     case "camera":
@@ -191,4 +191,3 @@ export const ErrorScreen = (props: ErrorScreenProps): JSX.Element => (
     </div>
   </div>
 )
-
