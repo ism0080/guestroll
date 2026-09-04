@@ -37,14 +37,15 @@ const isWorkersDevOrigin = (origin: string) => {
 export default (
   apiDomain: string | undefined,
   hostOrigin: string | undefined,
-  guestOrigin: string | undefined
+  guestOrigin: string | undefined,
+  zoneName: string | undefined
 ) => Cloudflare.Worker(
   "Api",
   {
     main: import.meta.url,
     domain: apiDomain === undefined
       ? undefined
-      : { name: apiDomain, zoneName: "mackle.im" },
+      : { name: apiDomain, zoneName },
     env: {
       HOST_PASSCODE: Config.redacted("HOST_PASSCODE"),
       HOST_SESSION_SECRET: Alchemy.makeRandom("HostSessionSecret"),

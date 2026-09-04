@@ -25,15 +25,17 @@ export default Alchemy.Stack(
     const apiDomain = Option.getOrUndefined(yield* Config.option(Config.string("API_DOMAIN")))
     const guestDomain = Option.getOrUndefined(yield* Config.option(Config.string("GUEST_DOMAIN")))
     const hostDomain = Option.getOrUndefined(yield* Config.option(Config.string("HOST_DOMAIN")))
+    const zoneName = Option.getOrUndefined(yield* Config.option(Config.string("ZONE_NAME")))
     const bucket = yield* Bucket
     const database = yield* Database
     const api = yield* ApiWorker(
       apiDomain,
       hostDomain === undefined ? undefined : `https://${hostDomain}`,
-      guestDomain === undefined ? undefined : `https://${guestDomain}`
+      guestDomain === undefined ? undefined : `https://${guestDomain}`,
+      zoneName
     )
-    const guest = yield* Guest(api.url, guestDomain)
-    const host = yield* Host(api.url, guest.url, hostDomain)
+    const guest = yield* Guest(api.url, guestDomain, zoneName)
+    const host = yield* Host(api.url, guest.url, hostDomain, zoneName)
 
     return {
       apiUrl: api.url,

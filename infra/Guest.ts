@@ -11,13 +11,14 @@ import * as Output from "alchemy/Output"
  */
 export const Guest = (
   apiUrl: Output.Output<string | undefined>,
-  domain: string | undefined
+  domain: string | undefined,
+  zoneName: string | undefined
 ) =>
   Cloudflare.Website.Vite("Guest", {
     rootDir: "apps/guest",
     domain: domain === undefined
       ? undefined
-      : { name: domain, zoneName: "mackle.im" },
+      : { name: domain, zoneName },
     env: {
       VITE_API_BASE: Output.map(apiUrl, (url) => url ?? "http://localhost:8787")
     }
