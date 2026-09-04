@@ -12,6 +12,7 @@
   "dependencies": {
     "@guestroll/contracts": "workspace:*",
     "@guestroll/sdk": "workspace:*",
+    "@guestroll/ui": "workspace:*",
     "@solidjs/meta": "^0.29.4",
     "@solidjs/router": "^1.0.0",
     "@solidjs/start": "^2.0.4",

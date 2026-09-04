@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js"
 import type { JSX } from "solid-js"
-import { CloseIcon } from "./icons"
+import { CloseIcon } from "@guestroll/ui"
 import { Modal } from "./Modal"
 
 export interface ShotLimitModalProps {

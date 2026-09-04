@@ -14,7 +14,7 @@ import {
   triggerAutoFocus
 } from "~/lib/camera"
 import type { CameraDevice, FacingMode, ZoomRange } from "~/lib/camera"
-import { FlashIcon, FlipIcon, GalleryIcon } from "./icons"
+import { FlashIcon, FlipIcon, GalleryIcon } from "@guestroll/ui"
 
 export interface CameraScreenProps {
   readonly usedCount: Accessor<number>

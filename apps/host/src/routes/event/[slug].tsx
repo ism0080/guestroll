@@ -15,8 +15,7 @@ import {
   updateEventStatus
 } from "~/lib/api"
 import { createCopyFeedback } from "~/lib/clipboard"
-import { CheckIcon, CopyIcon, EditIcon, QrIcon } from "~/components/icons"
-import { CameraBody } from "~/components/camera-art"
+import { CameraBody, CheckIcon, CopyIcon, EditIcon, QrIcon } from "@guestroll/ui"
 import { DownloadButton } from "~/components/DownloadButton"
 import { ShareModal } from "~/components/ShareModal"
 import { ShotLimitModal } from "~/components/ShotLimitModal"

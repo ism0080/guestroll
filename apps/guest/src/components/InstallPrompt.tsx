@@ -1,6 +1,6 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
-import { CloseIcon, DownloadIcon, ShareIcon } from "./icons"
+import { CloseIcon, DownloadIcon, ShareIcon } from "@guestroll/ui"
 
 const IOS_DISMISS_KEY = "guestroll.install.ios-dismissed"
 

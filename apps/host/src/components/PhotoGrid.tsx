@@ -2,7 +2,7 @@ import { createSignal, For } from "solid-js"
 import type { JSX } from "solid-js"
 import { filterPackCss, type HostPhoto } from "@guestroll/contracts"
 import { downloadSinglePhoto, photoThumbUrl } from "~/lib/api"
-import { DownloadIcon } from "./icons"
+import { DownloadIcon } from "@guestroll/ui"
 
 export interface PhotoGridProps {
   readonly slug: string

@@ -2,7 +2,7 @@ import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { filterPackCss, type HostPhoto } from "@guestroll/contracts"
 import { downloadSinglePhoto, photoImageUrl } from "~/lib/api"
-import { CloseIcon, DownloadIcon } from "./icons"
+import { CloseIcon, DownloadIcon } from "@guestroll/ui"
 
 export interface LightboxProps {
   readonly slug: string

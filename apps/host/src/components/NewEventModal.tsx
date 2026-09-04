@@ -2,7 +2,7 @@ import { createSignal, For, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { FilterPackOptions } from "@guestroll/contracts"
 import type { CreateEventInput } from "@guestroll/sdk"
-import { CloseIcon } from "./icons"
+import { CloseIcon } from "@guestroll/ui"
 import { Modal } from "./Modal"
 
 export interface NewEventModalProps {

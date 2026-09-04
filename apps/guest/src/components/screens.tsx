@@ -1,7 +1,6 @@
 import { Show } from "solid-js"
 import type { Accessor, JSX } from "solid-js"
-import { CheckIcon, GalleryIcon } from "./icons"
-import { CameraBody } from "./camera-art"
+import { CameraBody, CheckIcon, GalleryIcon } from "@guestroll/ui"
 
 export interface WelcomeScreenProps {
   readonly title: string

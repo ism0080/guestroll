@@ -44,6 +44,7 @@
       "dependencies": {
         "@guestroll/contracts": "workspace:*",
         "@guestroll/sdk": "workspace:*",
+        "@guestroll/ui": "workspace:*",
         "@solidjs/meta": "^0.29.4",
         "@solidjs/router": "^1.0.0",
         "@solidjs/start": "^2.0.4",
@@ -63,19 +64,20 @@
       "dependencies": {
         "@guestroll/contracts": "workspace:*",
         "@guestroll/sdk": "workspace:*",
+        "@guestroll/ui": "workspace:*",
         "@solidjs/meta": "^0.29.4",
         "@solidjs/router": "^1.0.0",
         "@solidjs/start": "^2.0.4",
         "@tanstack/solid-query": "^5.102.8",
         "qrcode": "^1.5.4",
         "solid-js": "^1.9.15",
-        "vite": "^8.2.2",
       },
       "devDependencies": {
         "@tailwindcss/vite": "^4.3.3",
         "@types/qrcode": "^1.5.6",
         "daisyui": "^5.7.27",
         "tailwindcss": "^4.3.3",
+        "vite": "^8.2.2",
       },
     },
     "packages/contracts": {
@@ -100,6 +102,17 @@
         "@guestroll/api": "workspace:*",
         "@guestroll/contracts": "workspace:*",
         "effect": "4.0.0-rc.112",
+      },
+    },
+    "packages/ui": {
+      "name": "@guestroll/ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "solid-js": "^1.9.15",
+      },
+      "devDependencies": {
+        "daisyui": "^5.7.27",
+        "tailwindcss": "^4.3.3",
       },
     },
   },
@@ -335,6 +348,8 @@
     "@guestroll/host": ["@guestroll/host@workspace:apps/host"],
 
     "@guestroll/sdk": ["@guestroll/sdk@workspace:packages/sdk"],
+
+    "@guestroll/ui": ["@guestroll/ui@workspace:packages/ui"],
 
     "@hono/node-server": ["@hono/node-server@1.19.9", "", { "peerDependencies": { "hono": "^4" } }, "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw=="],
 

@@ -3,7 +3,7 @@ import type { JSX } from "solid-js"
 import { Portal } from "solid-js/web"
 import QRCode from "qrcode"
 import { guestLink } from "~/lib/api"
-import { CheckIcon, CloseIcon, CopyIcon, PrinterIcon } from "./icons"
+import { CheckIcon, CloseIcon, CopyIcon, PrinterIcon } from "@guestroll/ui"
 import { Modal } from "./Modal"
 import { createCopyFeedback } from "~/lib/clipboard"
 

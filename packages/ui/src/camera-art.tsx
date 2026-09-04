@@ -6,10 +6,7 @@ interface CameraBodyProps {
   readonly count?: number | string
 }
 
-/**
- * Minimalist line-art of a disposable camera — the shared visual anchor
- * across the guest and host apps. The red window shows a frame count.
- */
+/** Minimalist line-art of a disposable camera, the GuestRoll visual anchor. */
 export const CameraBody = (props: CameraBodyProps): JSX.Element => (
   <svg
     viewBox="0 0 200 132"
@@ -33,16 +30,22 @@ export const CameraBody = (props: CameraBodyProps): JSX.Element => (
     <path d="M141 32l-8 11h7l-2 9 9-12h-6z" fill="#201d18" />
     <rect x="176" y="24" width="10" height="10" rx="2" fill="#201d18" opacity="0.7" />
     <rect x="120" y="64" width="40" height="18" rx="4" fill="#e8503a" stroke="#201d18" stroke-width="2.5" />
-    <text
-      x="140"
-      y="77"
-      text-anchor="middle"
-      font-family="'SF Mono', ui-monospace, monospace"
-      font-size="12"
-      font-weight="700"
-      fill="#fff6f0"
-    >
+    <text x="140" y="77" text-anchor="middle" font-family="'SF Mono', ui-monospace, monospace" font-size="12" font-weight="700" fill="#fff6f0">
       {props.count ?? "24"}
     </text>
   </svg>
+)
+
+interface FilmCounterProps {
+  readonly used: number
+  readonly limit: number
+  readonly class?: string
+}
+
+/** Exposure counter chip in the style of a disposable-camera film window. */
+export const FilmCounter = (props: FilmCounterProps): JSX.Element => (
+  <div class={`film-counter inline-flex items-center gap-2 rounded-lg border-2 border-neutral bg-primary px-3 py-1 text-primary-content shadow-[3px_3px_0_0_var(--guestroll-ink)] ${props.class ?? ""}`}>
+    <span class="text-lg font-bold leading-none">{props.used}</span>
+    <span class="text-xs leading-none opacity-70">/ {props.limit}</span>
+  </div>
 )

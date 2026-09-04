@@ -25,9 +25,9 @@ import {
   MoreIcon,
   PlusIcon,
   QrIcon,
-  TrashIcon
-} from "~/components/icons"
-import { CameraBody } from "~/components/camera-art"
+  TrashIcon,
+  CameraBody
+} from "@guestroll/ui"
 import { LoginScreen } from "~/components/LoginScreen"
 import { NewEventModal } from "~/components/NewEventModal"
 import { RenameEventModal } from "~/components/RenameEventModal"

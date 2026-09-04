@@ -18,7 +18,7 @@ import {
   WelcomeScreen
 } from "~/components/screens"
 import type { ErrorKind } from "~/components/screens"
-import { CameraBody } from "~/components/camera-art"
+import { CameraBody } from "@guestroll/ui"
 
 type Phase = "loading" | "error" | "welcome" | "shooting" | "done"
 

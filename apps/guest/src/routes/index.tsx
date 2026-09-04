@@ -1,6 +1,6 @@
 import { Title } from "@solidjs/meta"
 import type { JSX } from "solid-js"
-import { CameraBody } from "~/components/camera-art"
+import { CameraBody } from "@guestroll/ui"
 
 const Home = (): JSX.Element => (
   <div class="flex min-h-dvh flex-col items-center justify-center px-6 py-10">
