@@ -285,7 +285,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
         </Show>
       </div>
 
-      <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-4">
+      <div class="capture-top-chrome pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-4 pb-4">
         <div class="flex flex-col items-center gap-2">
           <div
             class="film-counter flex items-center gap-2 rounded-lg border-2 border-black/70 bg-primary px-3 py-1.5 text-primary-content shadow-lg"
@@ -305,7 +305,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
         </div>
       </div>
 
-      <div class="pointer-events-auto absolute left-4 top-4 z-20">
+      <div class="capture-home pointer-events-auto absolute left-4 z-20">
         <button
           type="button"
           class="btn btn-sm border-2 border-white/70 bg-black/45 text-white shadow-lg backdrop-blur-sm"
@@ -357,7 +357,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
         </div>
       </div>
 
-      <div class="pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-4 p-6 pb-8">
+      <div class="capture-bottom-controls pointer-events-auto absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-4 p-6">
         <button
           type="button"
           class="btn btn-circle btn-ghost btn-lg text-white"

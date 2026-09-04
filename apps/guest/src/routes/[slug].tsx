@@ -322,7 +322,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
             onHome={() => navigate("/")}
           />
           <Show when={cameraIssue()}>
-            <div class="fixed inset-x-0 bottom-24 z-20 flex justify-center px-4">
+            <div class="capture-notice-bottom fixed inset-x-0 z-20 flex justify-center px-4">
               <div class="alert alert-warning max-w-md shadow-lg">
                 <span>
                   {window.isSecureContext
@@ -343,7 +343,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
             </div>
           </Show>
           <Show when={!cameraIssue() && uploadError() !== null}>
-            <div class="fixed inset-x-0 bottom-24 z-20 flex justify-center px-4">
+            <div class="capture-notice-bottom fixed inset-x-0 z-20 flex justify-center px-4">
               <div class="alert alert-error max-w-md shadow-lg">
                 <span>{uploadError()}</span>
                 <button
@@ -371,7 +371,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
       </Show>
 
       <Show when={failedCount() > 0 && !failedHidden()}>
-        <div class="fixed inset-x-0 top-4 z-30 flex justify-center px-4">
+        <div class="capture-notice-top fixed inset-x-0 z-30 flex justify-center px-4">
           <div class="alert alert-warning max-w-md shadow-lg">
             <span>{failedCount()} photo{failedCount() === 1 ? "" : "s"} could not be saved.</span>
             <button

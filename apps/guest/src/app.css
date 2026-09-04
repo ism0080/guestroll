@@ -174,4 +174,26 @@
   background: #111;
 }
 
+/* `viewport-fit=cover` lets the viewfinder fill an iPhone screen. Keep every
+   interactive overlay clear of the dynamic-island/notch and home indicator. */
+.capture-top-chrome {
+  padding-top: calc(1rem + env(safe-area-inset-top));
+}
+
+.capture-home {
+  top: calc(1rem + env(safe-area-inset-top));
+}
+
+.capture-bottom-controls {
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+}
+
+.capture-notice-top {
+  top: calc(1rem + env(safe-area-inset-top));
+}
+
+.capture-notice-bottom {
+  bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+
 /* Kept-photo review carries the filter baked in by the canvas on capture */

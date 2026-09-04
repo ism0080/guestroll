@@ -75,7 +75,10 @@ const deleteRecord = (id) => runWrite((store) => store.delete(id))
 
 const broadcast = (message) => {
   self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-    for (const client of clients) client.postMessage(message, self.location.origin)
+    // Client.postMessage accepts a transfer list/options, not a target origin
+    // (the latter belongs to Window.postMessage). Supplying the origin throws
+    // and leaves the page's queue count stale after a successful upload.
+    for (const client of clients) client.postMessage(message)
   })
 }
 
