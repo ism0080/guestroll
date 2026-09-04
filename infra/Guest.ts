@@ -20,6 +20,7 @@ export const Guest = (
       ? undefined
       : { name: domain, zoneName },
     env: {
-      VITE_API_BASE: Output.map(apiUrl, (url) => url ?? "http://localhost:8787")
+      VITE_API_BASE: Output.map(apiUrl, (url) => url ?? "http://localhost:8787"),
+      VITE_GUEST_BASE: domain === undefined ? "http://localhost:5174" : `https://${domain}`
     }
   })

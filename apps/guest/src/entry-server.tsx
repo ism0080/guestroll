@@ -1,6 +1,8 @@
 // @refresh reload
 import { createHandler, StartServer } from "@solidjs/start/server";
 
+const guestBaseUrl = import.meta.env.VITE_GUEST_BASE ?? "http://localhost:5174";
+
 export default createHandler(() => (
   <StartServer
     document={({ assets, children, scripts }) => (
@@ -18,7 +20,7 @@ export default createHandler(() => (
            <meta property="og:site_name" content="GuestRoll" />
            <meta property="og:title" content="GuestRoll" />
            <meta property="og:description" content="GuestRoll — a disposable camera for your wedding guests" />
-           <meta property="og:image" content="/icons/icon-512.png" />
+           <meta property="og:image" content={`${guestBaseUrl}/icons/icon-512.png`} />
            <meta property="og:image:width" content="512" />
            <meta property="og:image:height" content="512" />
            <meta property="og:image:alt" content="GuestRoll camera" />
