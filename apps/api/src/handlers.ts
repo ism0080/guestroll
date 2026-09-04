@@ -23,7 +23,9 @@ import {
   HostPhoto,
   Photo,
   UploadId,
-  UploadResult
+  UploadResult,
+  ObjectKey,
+  UploadContentMismatchError
 } from "@guestroll/contracts"
 import { transitionEventStatus } from "@guestroll/domain"
 import { EventsApi } from "./api.ts"
@@ -34,6 +36,8 @@ import { HostAuth, HostSessionCookie } from "./host-auth.ts"
 import * as repo from "./repo.ts"
 import { R2 } from "./storage.ts"
 import { randomId } from "./ids.ts"
+
+const StalePendingClaimMs = repo.StalePendingClaimMs
 
 export const eventToPublic = (event: Event): EventPublic =>
   new EventPublic({
@@ -173,7 +177,7 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const parts = Array.from(
           yield* Stream.runCollect(payload).pipe(Effect.mapError(() => _badRequest()))
         )
-        if (parts.length !== 4) return yield* _badRequest()
+        if (parts.length < 4 || parts.length > 5) return yield* _badRequest()
         const filePart = yield* _singlePart(parts, "photo", Multipart.isFile)
         if (!Multipart.isFile(filePart) || !["image/jpeg", "image/png", "image/webp"].includes(filePart.contentType)) {
           return yield* _badRequest()
@@ -194,7 +198,17 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
           Match.orElse(() => false)
         )
         if (!hasImageSignature) return yield* _badRequest()
+        const thumbParts = parts.filter((part) => part.key === "thumb")
+        if (thumbParts.length > 1) return yield* _badRequest()
+        const thumbPart = thumbParts[0]
+        if (thumbPart !== undefined && !Multipart.isFile(thumbPart)) return yield* _badRequest()
+        if (Multipart.isFile(thumbPart) && !["image/jpeg", "image/png", "image/webp"].includes(thumbPart.contentType)) {
+          return yield* _badRequest()
+        }
         const file = { bytes: fileBytes, contentType: filePart.contentType }
+        const thumbBytes = Multipart.isFile(thumbPart)
+          ? yield* thumbPart.contentEffect.pipe(Effect.mapError(() => _badRequest()))
+          : undefined
         yield* _singlePart(parts, "cameraId", Multipart.isField)
         yield* _singlePart(parts, "takenAt", Multipart.isField)
         yield* _singlePart(parts, "uploadId", Multipart.isField)
@@ -216,23 +230,31 @@ export const GuestLive = HttpApiBuilder.group(EventsApi, "guest", (handlers) =>
         const contentDigest = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
         const r2 = yield* R2
+        const thumbKey = thumbBytes === undefined
+          ? ObjectKey.make(`${event.id}-${cameraId}-${uploadId}`)
+          : ObjectKey.make(`${event.id}-${cameraId}-${uploadId}-thumb`)
         const claimed = yield* repo.claimPhotoUpload({
           eventId: event.id,
           cameraId,
           uploadId,
           photoId: PhotoId.make(yield* randomId),
+          thumbKey,
           contentDigest,
           takenAt,
-          uploadedAt
+          uploadedAt,
+          staleClaimCutoff: new Date(uploadedAt.getTime() - StalePendingClaimMs)
         }).pipe(Effect.catchTags({
           CameraNotFound: () => Effect.fail(_notFound()),
           EventNotLive: () => Effect.fail(new HttpApiError.Forbidden()),
           PhotoLimitReached: () => Effect.fail(new HttpApiError.Conflict()),
-          UploadContentMismatch: () => Effect.fail(new HttpApiError.Conflict())
+          UploadContentMismatch: () => Effect.fail(new UploadContentMismatchError())
         }))
         // Only the original pending claim writes; uploaded retries are read-only.
         if (claimed.status === "pending") {
           yield* r2.put(claimed.photo.objectKey, file.bytes, file.contentType)
+          if (thumbBytes !== undefined && claimed.photo.thumbKey !== claimed.photo.objectKey) {
+            yield* r2.put(claimed.photo.thumbKey, thumbBytes, "image/jpeg")
+          }
           yield* repo.completePhotoUpload(claimed.photo.id)
         }
         return new UploadResult({
@@ -251,6 +273,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
       Effect.gen(function* () {
         const env = yield* WorkerEnv
         yield* _requireRateLimit(request, "host-login", env.LOGIN_RATE_LIMIT)
+        if (request.headers.origin !== env.HOST_ALLOWED_ORIGIN) return yield* _unauthorized()
         const auth = yield* HostAuth
         const token = yield* auth.authenticate(payload.passcode)
         if (Option.isNone(token)) return yield* _unauthorized()
@@ -370,9 +393,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         )
         const r2 = yield* R2
         const keys = new Set([...cleanup.photoKeys, ...(cleanup.downloadKey === null ? [] : [cleanup.downloadKey])])
-        for (const key of keys) {
-          yield* r2.delete(key).pipe(Effect.ignore)
-        }
+        yield* r2.deleteKeys([...keys]).pipe(Effect.ignore)
         return HttpServerResponse.empty({ status: 204 })
       })
     )
@@ -438,7 +459,28 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           status: 200,
           headers: {
             "Content-Type": object.contentType,
-            "Cache-Control": "private, no-store",
+            "Cache-Control": "private, max-age=300",
+            "X-Content-Type-Options": "nosniff"
+          }
+        })
+      })
+    )
+    .handle("getHostPhotoThumb", ({ params, request }) =>
+      Effect.gen(function* () {
+        const ownerId = yield* _requireHost(request)
+        const event = yield* repo.getOwnedEventBySlug(params.slug, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const photo = yield* repo.getEventPhoto(event.id, params.photoId, ownerId).pipe(
+          Effect.flatMap(Effect.fromOption(() => _notFound()))
+        )
+        const r2 = yield* R2
+        const object = yield* r2.getObject(photo.thumbKey).pipe(Effect.mapError(() => _notFound()))
+        return HttpServerResponse.raw(object.bytes, {
+          status: 200,
+          headers: {
+            "Content-Type": object.contentType,
+            "Cache-Control": "private, max-age=300",
             "X-Content-Type-Options": "nosniff"
           }
         })

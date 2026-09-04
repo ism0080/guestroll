@@ -27,7 +27,6 @@ export class Event extends Schema.Class<Event>("Event")({
   ownerId: OwnerId,
   slug: EventSlug,
   title: Schema.NonEmptyString.check(Schema.isMaxLength(160)),
-  coverKey: Schema.optional(ObjectKey),
   filterPack: FilterPack,
   photoLimit: PhotoLimit,
   status: EventStatus,

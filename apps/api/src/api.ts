@@ -21,7 +21,8 @@ import {
   HostSession,
   PhotoId,
   RateLimitExceeded,
-  UploadResult
+  UploadResult,
+  UploadContentMismatchError
 } from "@guestroll/contracts"
 
 const SlugParams = Schema.Struct({ slug: EventSlug })
@@ -137,10 +138,10 @@ export const UploadPhoto = HttpApiEndpoint.post(
   {
     params: SlugParams,
     payload: Schema.Unknown.pipe(HttpApiSchema.asMultipartStream({
-      maxParts: 4,
+       maxParts: 5,
       maxFieldSize: 256,
       maxFileSize: 2 * 1024 * 1024,
-      maxTotalSize: 2 * 1024 * 1024 + 1024
+       maxTotalSize: 2 * 1024 * 1024 + 256 * 1024 + 1024
     })),
     success: UploadResult,
     error: [
@@ -149,6 +150,7 @@ export const UploadPhoto = HttpApiEndpoint.post(
       HttpApiError.Unauthorized,
       HttpApiError.BadRequest,
       HttpApiError.Conflict,
+      UploadContentMismatchError,
       RateLimitExceeded
     ]
   }
@@ -188,6 +190,17 @@ export const ResetCamera = HttpApiEndpoint.post(
 export const GetHostPhoto = HttpApiEndpoint.get(
   "getHostPhoto",
   "/events/:slug/photos/:photoId",
+  {
+    params: PhotoParams,
+    success: HttpApiSchema.NoContent,
+    error: [HttpApiError.NotFound, HttpApiError.Unauthorized]
+  }
+)
+
+// The endpoint declares NoContent so handlers can return raw authenticated bytes.
+export const GetHostPhotoThumb = HttpApiEndpoint.get(
+  "getHostPhotoThumb",
+  "/events/:slug/photos/:photoId/thumb",
   {
     params: PhotoParams,
     success: HttpApiSchema.NoContent,
@@ -243,7 +256,8 @@ export class HostGroup extends HttpApiGroup.make("host")
   .add(ListEventPhotos)
   .add(ListEventCameras)
   .add(ResetCamera)
-  .add(GetHostPhoto)
+   .add(GetHostPhoto)
+   .add(GetHostPhotoThumb)
   .add(RequestDownload)
   .add(GetDownloadStatus)
   .add(GetDownloadFile) {}

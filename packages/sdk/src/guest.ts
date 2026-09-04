@@ -9,7 +9,8 @@ export interface UploadPhotoInput {
   readonly cameraId: string
   readonly takenAt: Date
   readonly uploadId: string
-  readonly file: Blob
+   readonly file: Blob
+   readonly thumb?: Blob
 }
 
 /** Promise-based guest API, typesafe and schema-decoded via `HttpApiClient`. */
@@ -46,15 +47,16 @@ export const createGuestClient = (options: ApiClientOptions): Promise<GuestClien
           "Invalid guest camera request"
         )
       })),
-    uploadPhoto: ({ slug, cameraId, takenAt, uploadId, file }) => {
+    uploadPhoto: ({ slug, cameraId, takenAt, uploadId, file, thumb }) => {
       const form = new FormData()
       form.append("photo", file, "photo.jpg")
       form.append("cameraId", cameraId)
       form.append("takenAt", takenAt.toISOString())
       form.append("uploadId", uploadId)
+      if (thumb !== undefined) form.append("thumb", thumb, "thumb.jpg")
       return runApi(client.guest.uploadPhoto({
         params: { slug: parse(EventSlug, slug, "Invalid event link") },
-        payload: form
+       payload: form
       }))
     }
   }))

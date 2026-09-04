@@ -63,12 +63,14 @@ the prompt appears normally.
   `SameSite=None` cookie. All host mutations, including logout, require the exact host
   origin and a valid session.
 - Guest camera creation and photo uploads are rate limited by Cloudflare.
-- Uploads accept one JPEG, PNG, or WebP file up to 2 MiB plus `cameraId`, `takenAt`,
-  and a client-generated UUID `uploadId`. Retrying the same `uploadId` is idempotent.
+- Uploads accept one JPEG, PNG, or WebP file up to 2 MiB plus an optional thumbnail,
+  `cameraId`, `takenAt`, and a client-generated UUID `uploadId`. Retrying the same
+  `uploadId` is idempotent. A content mismatch returns 422; a full roll returns 409.
 - Host photo listing uses cursor pagination with a maximum page size of 100.
 
 D1 and R2 cannot participate in one transaction. The upload flow creates a durable,
 idempotent pending database claim before the R2 write, then exposes the photo only
 after it is marked uploaded. Each claim is bound to its SHA-256 digest, so retries with
 different bytes are rejected. Pending claims remain retryable, preventing an
-interrupted Worker request from deleting or replacing its durable claim.
+  interrupted Worker request from deleting or replacing its durable claim. Pending claims
+  older than 24 hours no longer consume a roll slot while remaining retryable.

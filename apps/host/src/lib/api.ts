@@ -112,20 +112,33 @@ export const loadSession = async (): Promise<SessionSnapshot> => {
 }
 
 /** Walks the photo cursor to load every photo for an event (newest first). */
-export const fetchAllEventPhotos = async (slug: string): Promise<ReadonlyArray<HostPhoto>> => {
+export const fetchAllEventPhotos = async (
+  slug: string,
+  previous: ReadonlyArray<HostPhoto> = []
+): Promise<ReadonlyArray<HostPhoto>> => {
+  const previousNewest = previous[0]
   const photos: HostPhoto[] = []
   let cursor: PhotoPageQuery | undefined
-  for (let page = 0; page < 20; page += 1) {
+  for (let page = 0; page < 100; page += 1) {
     const pageData = await listEventPhotos(slug, { limit: 100, ...cursor })
-    photos.push(...pageData.photos)
+    for (const photo of pageData.photos) {
+      if (previousNewest !== undefined && photo.id === previousNewest.id) {
+        return [...photos, ...previous]
+      }
+      photos.push(photo)
+    }
     if (pageData.nextCursor === undefined) return photos
     cursor = {
       cursorUploadedAt: pageData.nextCursor.uploadedAt,
       cursorId: pageData.nextCursor.id
     }
   }
-  return photos
+  const seen = new Set(photos.map((photo) => photo.id))
+  return [...photos, ...previous.filter((photo) => !seen.has(photo.id))]
 }
+
+export const photoThumbUrl = (slug: string, photoId: string): string =>
+  `${apiBase}/events/${encodeURIComponent(slug)}/photos/${encodeURIComponent(photoId)}/thumb`
 
 /** URL of a photo's bytes for the dashboard. Host-only; requires the session cookie. */
 export const photoImageUrl = (slug: string, photoId: string): string =>

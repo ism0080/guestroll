@@ -75,7 +75,7 @@ const deleteRecord = (id) => runWrite((store) => store.delete(id))
 
 const broadcast = (message) => {
   self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-    for (const client of clients) client.postMessage(message)
+    for (const client of clients) client.postMessage(message, self.location.origin)
   })
 }
 
@@ -105,12 +105,14 @@ const uploadRecord = async (record) => {
   form.append("cameraId", record.cameraId)
   form.append("takenAt", record.takenAt)
   form.append("uploadId", record.id)
+  if (record.thumbBlob) form.append("thumb", record.thumbBlob, "thumb.jpg")
 
   let response
   try {
     response = await fetch(`${record.apiBase}/events/${record.slug}/photos`, {
       method: "POST",
-      body: form
+      body: form,
+      signal: AbortSignal.timeout(60000)
     })
   } catch {
     return retryLater(record)
@@ -154,6 +156,7 @@ const uploadRecord = async (record) => {
 }
 
 let draining = false
+let rerunRequested = false
 let timer = 0
 
 const scheduleNext = (nextAttemptAt) => {
@@ -181,7 +184,10 @@ const broadcastCounts = async () => {
 }
 
 const drainQueue = async () => {
-  if (draining) return
+  if (draining) {
+    rerunRequested = true
+    return
+  }
   draining = true
   try {
     const records = await getAllRecords()
@@ -198,20 +204,16 @@ const drainQueue = async () => {
         nextAttemptAt = Math.min(nextAttemptAt, outcome)
       }
     }
-    // Records enqueued while this pass was in flight need a fresh pass.
-    const remaining = await getAllRecords()
-    for (const record of remaining) {
-      if (record.status !== "failed" && record.nextAttemptAt <= now) {
-        nextAttemptAt = now
-        break
-      }
-    }
     scheduleNext(nextAttemptAt)
     await broadcastCounts()
   } catch {
     scheduleNext(Date.now() + BACKOFF_MS[0])
   } finally {
     draining = false
+    if (rerunRequested) {
+      rerunRequested = false
+      void drainQueue()
+    }
   }
 }
 

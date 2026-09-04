@@ -213,7 +213,8 @@ const Home = (): JSX.Element => {
             <button
               type="button"
               class="btn btn-ghost gap-2"
-              onClick={() => logoutMutation.mutate()}
+               disabled={logoutMutation.isPending}
+               onClick={() => logoutMutation.mutate()}
             >
               <LogoutIcon class="h-5 w-5" />
               Sign out
@@ -303,7 +304,8 @@ const Home = (): JSX.Element => {
                             <li>
                               <button
                                 type="button"
-                                onClick={() => duplicateMutation.mutate(event.slug)}
+                                 disabled={duplicateMutation.isPending}
+                                 onClick={() => duplicateMutation.mutate(event.slug)}
                               >
                                 <DuplicateIcon class="h-4 w-4" />
                                 Duplicate
@@ -355,7 +357,7 @@ const Home = (): JSX.Element => {
         <NewEventModal
           busy={newEventMutation.isPending}
           error={createError()}
-          onClose={() => setShowCreate(false)}
+           onClose={() => { newEventMutation.reset(); setShowCreate(false) }}
           onCreate={(input) => newEventMutation.mutate(input)}
         />
       </Show>
@@ -373,7 +375,7 @@ const Home = (): JSX.Element => {
           busy={renameMutation.isPending}
           error={renameError()}
           initialTitle={renameTarget()!.title}
-          onClose={() => setRenameTarget(null)}
+           onClose={() => { renameMutation.reset(); setRenameTarget(null) }}
           onRename={(title) =>
             renameMutation.mutate({ slug: renameTarget()!.slug, title })
           }
@@ -385,7 +387,7 @@ const Home = (): JSX.Element => {
           busy={shotLimitMutation.isPending}
           error={shotLimitError()}
           initialLimit={shotLimitTarget()!.photoLimit}
-          onClose={() => setShotLimitTarget(null)}
+           onClose={() => { shotLimitMutation.reset(); setShotLimitTarget(null) }}
           onSave={(photoLimit) =>
             shotLimitMutation.mutate({ slug: shotLimitTarget()!.slug, photoLimit })
           }

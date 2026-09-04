@@ -56,7 +56,7 @@ export const downloadBlob = (blob: Blob, filename: string): void => {
     anchor.remove()
   } finally {
     // Let the browser start the download before revoking.
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 }
 

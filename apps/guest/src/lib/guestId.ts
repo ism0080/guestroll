@@ -2,6 +2,7 @@ import { randomUUID } from "./api"
 
 const _key = "guestroll.guestId"
 const _nameKey = "guestroll.guestName"
+let _memoryGuestId: string | undefined
 
 const _storage = (): Storage | undefined => {
   try {
@@ -18,11 +19,15 @@ const _storage = (): Storage | undefined => {
  */
 export const deviceGuestId = (): string => {
   const storage = _storage()
-  if (storage === undefined) return randomUUID()
+  if (storage === undefined) return (_memoryGuestId ??= randomUUID())
   const existing = storage.getItem(_key)
   if (existing !== null && existing !== "") return existing
   const id = randomUUID()
-  storage.setItem(_key, id)
+  try {
+    storage.setItem(_key, id)
+  } catch {
+    _memoryGuestId = id
+  }
   return id
 }
 

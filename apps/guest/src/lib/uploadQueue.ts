@@ -6,6 +6,7 @@ export const SYNC_TAG = "guestroll-uploads"
 const DB_NAME = "guestroll-uploads"
 const DB_VERSION = 1
 const STORE = "queue"
+let _registration: Promise<boolean> | undefined
 
 /**
  * Messages the upload service worker posts back to open tabs. Mirrors the
@@ -30,6 +31,7 @@ interface QueueRecord {
   readonly takenAt: string
   readonly apiBase: string
   readonly blob: Blob
+  readonly thumbBlob?: Blob
   readonly status: "queued" | "retrying" | "failed"
   readonly attempts: number
   readonly nextAttemptAt: number
@@ -48,9 +50,13 @@ export type UploadOutcome =
 const _workerEnabled = (): boolean =>
   import.meta.env.PROD && "serviceWorker" in navigator
 
+const _ensureServiceWorker = (): Promise<boolean> => {
+  if (!_workerEnabled()) return Promise.resolve(false)
+  return (_registration ??= navigator.serviceWorker.register("/sw.js").then(() => true, () => false))
+}
+
 export const registerServiceWorker = (): void => {
-  if (!_workerEnabled()) return
-  navigator.serviceWorker.register("/sw.js").catch(() => {})
+  void _ensureServiceWorker()
 }
 
 const _openDb = (): Promise<IDBDatabase> =>
@@ -87,7 +93,7 @@ const _runWrite = async (operation: (store: IDBObjectStore) => void): Promise<vo
  * tab is closed. Best-effort; the queue persists regardless.
  */
 export const wakeWorker = async (): Promise<void> => {
-  if (!_workerEnabled()) return
+  if (!(await _ensureServiceWorker())) return
   try {
     const registration = await navigator.serviceWorker.ready
     const worker = registration.active ?? navigator.serviceWorker.controller
@@ -103,7 +109,7 @@ export const wakeWorker = async (): Promise<void> => {
  * are unavailable, uploads inline through the SDK as before.
  */
 export const submitPhoto = async (input: UploadPhotoInput): Promise<UploadOutcome> => {
-  if (_workerEnabled()) {
+  if (await _ensureServiceWorker()) {
     await _runWrite((store) => {
       store.put({
         id: input.uploadId,
@@ -112,6 +118,7 @@ export const submitPhoto = async (input: UploadPhotoInput): Promise<UploadOutcom
         takenAt: input.takenAt.toISOString(),
         apiBase,
         blob: input.file,
+        thumbBlob: input.thumb,
         status: "queued",
         attempts: 0,
         nextAttemptAt: 0
@@ -122,6 +129,26 @@ export const submitPhoto = async (input: UploadPhotoInput): Promise<UploadOutcom
   }
   const result = await uploadPhoto(input)
   return { kind: "uploaded", result }
+}
+
+/** Requeues permanently failed records after the guest explicitly retries. */
+export const retryFailedUploads = async (): Promise<number> => {
+  const db = await _openDb()
+  try {
+    const records = await new Promise<readonly QueueRecord[]>((resolve, reject) => {
+      const request = db.transaction(STORE, "readonly").objectStore(STORE).getAll()
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const failed = records.filter((record) => record.status === "failed")
+    await _runWrite((store) => {
+      for (const record of failed) store.put({ ...record, status: "queued", attempts: 0, nextAttemptAt: 0 })
+    })
+    if (failed.length > 0) void wakeWorker()
+    return failed.length
+  } finally {
+    db.close()
+  }
 }
 
 /** Reads the current pending/failed counts straight from the queue store. */

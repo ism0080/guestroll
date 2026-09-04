@@ -14,6 +14,7 @@ import {
   updateEventPhotoLimit,
   updateEventStatus
 } from "~/lib/api"
+import { createCopyFeedback } from "~/lib/clipboard"
 import { CheckIcon, CopyIcon, EditIcon, QrIcon } from "~/components/icons"
 import { CameraBody } from "~/components/camera-art"
 import { DownloadButton } from "~/components/DownloadButton"
@@ -22,14 +23,13 @@ import { ShotLimitModal } from "~/components/ShotLimitModal"
 import { PhotoGrid } from "~/components/PhotoGrid"
 import { Lightbox } from "~/components/Lightbox"
 
-const EventDetail = (): JSX.Element => {
-  const params = useParams()
+const EventDetail = (props: { readonly slug: string }): JSX.Element => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const slug = params["slug"] ?? ""
+  const slug = props.slug
 
   const [selected, setSelected] = createSignal<HostPhoto | null>(null)
-  const [copied, setCopied] = createSignal(false)
+  const copyFeedback = createCopyFeedback()
   const [shareOpen, setShareOpen] = createSignal(false)
   const [shotLimitOpen, setShotLimitOpen] = createSignal(false)
 
@@ -53,7 +53,7 @@ const EventDetail = (): JSX.Element => {
 
   const photosQuery = createQuery(() => ({
     queryKey: ["host", "photos", slug],
-    queryFn: () => fetchAllEventPhotos(slug),
+    queryFn: () => fetchAllEventPhotos(slug, queryClient.getQueryData<ReadonlyArray<HostPhoto>>(["host", "photos", slug]) ?? []),
     enabled: sessionQuery.data?.authenticated === true && event() !== undefined,
     retry: false,
     refetchInterval: 20000,
@@ -91,11 +91,10 @@ const EventDetail = (): JSX.Element => {
     }
   }))
 
-  const copyLink = (): void => {
-    navigator.clipboard.writeText(guestLink(slug)).catch(() => {})
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
-  }
+  const statusError = createMemo(() => statusMutation.error !== null ? "Couldn't update the event status. Try again." : null)
+  const camerasError = createMemo(() => camerasQuery.isError ? "Couldn't refresh guest rolls." : null)
+
+  const copyLink = (): void => copyFeedback.copy(guestLink(slug))
 
   const rollStatus = (roll: HostCamera): "in-progress" | "full" | "reset" =>
     roll.resetAt !== undefined ? "reset" : roll.usedCount >= roll.photoLimit ? "full" : "in-progress"
@@ -158,7 +157,7 @@ const EventDetail = (): JSX.Element => {
         </div>
       </Show>
 
-      <Show when={sessionQuery.data?.authenticated === true && event() !== undefined}>
+       <Show when={sessionQuery.data?.authenticated === true && event() !== undefined}>
         <Title>{event()!.title} — Guestroll</Title>
         <div class="mx-auto max-w-5xl px-4 py-8">
           <div class="mb-6 flex items-start justify-between gap-4">
@@ -187,7 +186,7 @@ const EventDetail = (): JSX.Element => {
                 </Show>
               </div>
               <p class="film-counter mt-2 flex items-center gap-1 text-sm text-base-content/60">
-                <span class="font-bold text-primary">{photosQuery.data?.length ?? 0}</span> photos
+                <span class="font-bold text-primary">{photosQuery.data?.length ?? "..."}</span> photos
                 · {event()!.photoLimit} shots per guest
                 <button
                   type="button"
@@ -216,8 +215,8 @@ const EventDetail = (): JSX.Element => {
                 class="btn btn-ghost btn-sm border-2 border-neutral"
                 onClick={copyLink}
               >
-                {copied() ? <CheckIcon class="h-4 w-4" /> : <CopyIcon class="h-4 w-4" />}
-                {copied() ? "Link copied" : "Copy guest link"}
+                {copyFeedback.state() === "copied" ? <CheckIcon class="h-4 w-4" /> : <CopyIcon class="h-4 w-4" />}
+                {copyFeedback.state() === "copied" ? "Link copied" : copyFeedback.state() === "failed" ? "Copy failed" : "Copy guest link"}
               </button>
               <button
                 type="button"
@@ -287,9 +286,17 @@ const EventDetail = (): JSX.Element => {
                     )}
                   </For>
                 </ul>
-              </div>
-            </div>
-          </Show>
+           </div>
+         </div>
+       </Show>
+
+       <Show when={statusError() !== null || camerasError() !== null}>
+         <div class="mx-auto max-w-5xl px-4">
+           <div class="mb-4 rounded-field border-2 border-error bg-error/10 p-3 text-sm">
+             {statusError() ?? camerasError()}
+           </div>
+         </div>
+       </Show>
 
           <Show when={photosQuery.isError}>
             <div class="mb-4 flex items-center justify-between gap-3 rounded-field border-2 border-warning bg-warning/10 p-3 text-sm">
@@ -304,8 +311,11 @@ const EventDetail = (): JSX.Element => {
             </div>
           </Show>
 
-          <Show
-            when={(photosQuery.data?.length ?? 0) > 0}
+           <Show when={photosQuery.isPending}>
+             <div class="paper-card p-8 text-center">Loading photos...</div>
+           </Show>
+           <Show
+             when={!photosQuery.isPending && (photosQuery.data?.length ?? 0) > 0}
             fallback={
               <div class="paper-card p-8 text-center">
                 <CameraBody class="mx-auto mb-4 w-32 opacity-80" />
@@ -353,7 +363,7 @@ const EventDetail = (): JSX.Element => {
           busy={shotLimitMutation.isPending}
           error={shotLimitMutation.error ? "Couldn't update the shot count. Try again." : null}
           initialLimit={event()!.photoLimit}
-          onClose={() => setShotLimitOpen(false)}
+           onClose={() => { shotLimitMutation.reset(); setShotLimitOpen(false) }}
           onSave={(photoLimit) => shotLimitMutation.mutate(photoLimit)}
         />
       </Show>
@@ -361,4 +371,9 @@ const EventDetail = (): JSX.Element => {
   )
 }
 
-export default EventDetail
+const EventRoute = (): JSX.Element => {
+  const params = useParams()
+  return <Show keyed when={params["slug"]}>{(slug) => <EventDetail slug={slug} />}</Show>
+}
+
+export default EventRoute

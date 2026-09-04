@@ -3,6 +3,7 @@ import type { JSX } from "solid-js"
 import { FilterPackOptions } from "@guestroll/contracts"
 import type { CreateEventInput } from "@guestroll/sdk"
 import { CloseIcon } from "./icons"
+import { Modal } from "./Modal"
 
 export interface NewEventModalProps {
   readonly busy: boolean
@@ -19,7 +20,7 @@ export const NewEventModal = (props: NewEventModalProps): JSX.Element => {
   const [photoLimit, setPhotoLimit] = createSignal(DEFAULT_LIMIT)
   const [filterPack, setFilterPack] = createSignal(DEFAULT_FILTER_PACK)
 
-  const canSubmit = (): boolean => props.busy || title().trim() === ""
+  const canSubmit = (): boolean => props.busy || title().trim() === "" || !Number.isInteger(photoLimit()) || photoLimit() < 1 || photoLimit() > 100
 
   const submit = (event: Event): void => {
     event.preventDefault()
@@ -31,8 +32,7 @@ export const NewEventModal = (props: NewEventModalProps): JSX.Element => {
   }
 
   return (
-    <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div class="w-full max-w-md">
+    <Modal label="New event" onClose={props.onClose}>
         <form class="paper-card" onSubmit={submit}>
           <div class="card-body gap-4">
             <div class="flex items-start justify-between">
@@ -107,7 +107,6 @@ export const NewEventModal = (props: NewEventModalProps): JSX.Element => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }

@@ -1,9 +1,11 @@
-import { createResource, createSignal, For, Show } from "solid-js"
+import { createResource, For, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { Portal } from "solid-js/web"
 import QRCode from "qrcode"
 import { guestLink } from "~/lib/api"
 import { CheckIcon, CloseIcon, CopyIcon, PrinterIcon } from "./icons"
+import { Modal } from "./Modal"
+import { createCopyFeedback } from "~/lib/clipboard"
 
 export interface ShareModalProps {
   readonly slug: string
@@ -21,18 +23,15 @@ const TABLE_CARD_COUNT = 4
 export const ShareModal = (props: ShareModalProps): JSX.Element => {
   const link = guestLink(props.slug)
   const [qr] = createResource(link, qrSvgDataUrl)
-  const [copied, setCopied] = createSignal(false)
+  const copyFeedback = createCopyFeedback()
 
   const copyLink = (): void => {
-    navigator.clipboard.writeText(link).catch(() => {})
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
+    copyFeedback.copy(link)
   }
 
   return (
     <>
-      <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-sm">
+      <Modal label="Share event" onClose={props.onClose}>
           <div class="paper-card">
             <div class="card-body items-center gap-4">
               <div class="flex w-full items-start justify-between">
@@ -70,8 +69,8 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
                   class="shutter-btn btn btn-primary border-2 border-neutral shadow-[3px_3px_0_0_var(--guestroll-ink)]"
                   onClick={copyLink}
                 >
-                  {copied() ? <CheckIcon class="h-5 w-5" /> : <CopyIcon class="h-5 w-5" />}
-                  {copied() ? "Link copied" : "Copy link"}
+                  {copyFeedback.state() === "copied" ? <CheckIcon class="h-5 w-5" /> : <CopyIcon class="h-5 w-5" />}
+                  {copyFeedback.state() === "copied" ? "Link copied" : copyFeedback.state() === "failed" ? "Copy failed" : "Copy link"}
                 </button>
                 <button
                   type="button"
@@ -85,8 +84,7 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+      </Modal>
 
       <Portal>
         <div class="print-area hidden print:block" aria-hidden="true">

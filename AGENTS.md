@@ -29,11 +29,11 @@ not own any Cloudflare/Worker runtime wiring.
 - Providing `WorkerEnv` from the Cloudflare environment
 - **D1 schema + migrations via Drizzle** (`Drizzle.Schema` + `Cloudflare.D1`
   `migrations` prop, applied on deploy). The `apps/api/` repo SQL assumes the
-  migrated table shape (columns: `id`, `ownerId`, `slug`, `title`, `coverKey`,
+  migrated table shape (columns: `id`, `ownerId`, `slug`, `title`,
   `filterPack`, `photoLimit`, `status`, `createdAt`, `updatedAt`; `cameras`:
   `id`, `eventId`, `guestId`, `guestName`, `usedCount`, `resetAt`, `createdAt`; `photos`: `id`,
-  `uploadId`, `eventId`, `cameraId`, `objectKey`, `thumbKey`, `takenAt`,
-  `uploadedAt`).
+  `uploadId`, `eventId`, `cameraId`, `objectKey`, `thumbKey`, `filterPack`,
+  `contentDigest`, `status`, `takenAt`, `uploadedAt`).
 - The Effect HTTP runtime glue: `Etag.layer`, `HttpPlatform` (stub for
   Workers), `Path.layer`, `FileSystem` (noop), `HttpRouter.layer`
 - The final bridge to a Worker fetch: `HttpRouter.toHttpEffect` on the fully

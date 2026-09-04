@@ -95,7 +95,8 @@ export default Cloudflare.Worker(
              allowedOrigins: [env["HOST_ALLOWED_ORIGIN"], env["GUEST_ALLOWED_ORIGIN"]],
             allowedMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "b3", "traceparent", "tracestate", "baggage"],
-            credentials: true
+             credentials: true
+             ,maxAge: 86400
           })
         )
       )

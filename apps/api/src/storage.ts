@@ -15,11 +15,11 @@ export interface R2Object {
 export interface R2Deps {
   readonly put: (key: string, value: Uint8Array, contentType: string) => Effect.Effect<void>
   readonly putStream: (key: string, stream: ReadableStream<Uint8Array>, contentType: string) => Effect.Effect<number>
-  readonly get: (key: string) => Effect.Effect<Uint8Array, ObjectNotFound>
   readonly getObject: (key: string) => Effect.Effect<R2Object, ObjectNotFound>
   readonly getStream: (key: string) => Effect.Effect<ReadableStream<Uint8Array>, ObjectNotFound>
   readonly head: (key: string) => Effect.Effect<Option.Option<{ readonly size: number }>>
   readonly delete: (key: string) => Effect.Effect<void>
+  readonly deleteKeys: (keys: ReadonlyArray<string>) => Effect.Effect<void>
 }
 
 export class R2 extends Context.Service<R2, R2Deps>()("guestroll/R2") {}
@@ -44,18 +44,6 @@ export const R2Live = Layer.effect(
       }).pipe(
         Effect.orDie,
         Effect.map((object) => object.size)
-      )
-    const get: R2Deps["get"] = (key) =>
-      Effect.tryPromise(() => bucket.get(key)).pipe(
-        Effect.orDie,
-        Effect.flatMap((obj) =>
-          obj === null
-            ? Effect.fail(new ObjectNotFound({ key }))
-            : Effect.tryPromise(() => obj.arrayBuffer()).pipe(
-                Effect.orDie,
-                Effect.map((buf) => new Uint8Array(buf))
-              )
-        )
       )
     const getObject: R2Deps["getObject"] = (key) =>
       Effect.tryPromise(() => bucket.get(key)).pipe(
@@ -90,6 +78,10 @@ export const R2Live = Layer.effect(
       )
     const remove: R2Deps["delete"] = (key) =>
       Effect.tryPromise(() => bucket.delete(key)).pipe(Effect.orDie, Effect.andThen(Effect.void))
-    return R2.of({ put, putStream, get, getObject, getStream, head, delete: remove })
+    const removeKeys: R2Deps["deleteKeys"] = (keys) =>
+      keys.length === 0
+        ? Effect.void
+        : Effect.tryPromise(() => bucket.delete([...keys])).pipe(Effect.orDie, Effect.andThen(Effect.void))
+    return R2.of({ put, putStream, getObject, getStream, head, delete: remove, deleteKeys: removeKeys })
   })
 )

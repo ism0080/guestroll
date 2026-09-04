@@ -70,10 +70,15 @@ export const InstallPrompt = (): JSX.Element => {
   const install = async (): Promise<void> => {
     const prompt = deferred
     if (prompt === undefined) return
-    await prompt.prompt()
-    await prompt.userChoice
-    deferred = undefined
-    setInstallable(false)
+    try {
+      await prompt.prompt()
+      await prompt.userChoice
+      deferred = undefined
+      setInstallable(false)
+    } catch {
+      deferred = undefined
+      setInstallable(false)
+    }
   }
 
   const dismissIos = (): void => {

@@ -15,24 +15,27 @@ const startFileDownload = async (slug: string): Promise<void> => {
 }
 
 export const DownloadButton = (props: { readonly slug: string }): JSX.Element => {
-  const [phase, setPhase] = createSignal<"idle" | "building" | "error">("idle")
+  const [phase, setPhase] = createSignal<"idle" | "building" | "downloading" | "error">("idle")
   const [message, setMessage] = createSignal("")
   let pollTimer: number | undefined
   let polls = 0
 
   onCleanup(() => {
     if (pollTimer !== undefined) window.clearInterval(pollTimer)
+    pollTimer = undefined
   })
 
   const handleStatus = async (status: DownloadStatus): Promise<void> => {
+    if (pollTimer === undefined && phase() !== "building") return
     if (status.status === "ready") {
-      if (pollTimer !== undefined) window.clearInterval(pollTimer)
-      pollTimer = undefined
-      setPhase("idle")
+    if (pollTimer === undefined && phase() !== "building") return
+    if (pollTimer !== undefined) window.clearInterval(pollTimer)
+    pollTimer = undefined
+    setPhase("downloading")
       try {
         await startFileDownload(props.slug)
       } catch {
-        setPhase("error")
+         setPhase("error")
         setMessage("Couldn't download the ZIP — try again.")
       }
       return
@@ -56,6 +59,7 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
           polls += 1
           if (polls > MaxPolls) {
             if (pollTimer !== undefined) window.clearInterval(pollTimer)
+            pollTimer = undefined
             setPhase("error")
             setMessage("The build is taking too long — try again.")
             return
@@ -76,7 +80,7 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
       <button
         type="button"
         class="btn btn-ghost btn-sm border-2 border-neutral"
-        disabled={phase() === "building"}
+      disabled={phase() === "building" || phase() === "downloading"}
         onClick={() => void start()}
       >
         <Show when={phase() === "building"} fallback={<>Download all</>}>

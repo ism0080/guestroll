@@ -37,6 +37,7 @@ export const LoginScreen = (props: LoginScreenProps): JSX.Element => {
             <span class="text-sm font-semibold text-base-content">Passcode</span>
             <input
               type="password"
+              autofocus
               class="input input-lg mt-2 w-full border-2 border-neutral bg-base-200 focus:border-primary focus:outline-none"
               placeholder="••••••••"
               autocomplete="current-password"

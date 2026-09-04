@@ -1,7 +1,7 @@
 import { Effect, Option, Schema } from "effect"
 import * as HttpClientError from "effect/unstable/http/HttpClientError"
 import * as HttpApiError from "effect/unstable/httpapi/HttpApiError"
-import { RateLimitExceeded } from "@guestroll/contracts"
+import { RateLimitExceeded, UploadContentMismatchError } from "@guestroll/contracts"
 
 export type ApiErrorKind =
   | "not-found"
@@ -9,6 +9,7 @@ export type ApiErrorKind =
   | "conflict"
   | "rate-limited"
   | "bad-request"
+  | "content-mismatch"
   | "unauthorized"
   | "network"
   | "bad-response"
@@ -32,6 +33,7 @@ export type ApiClientError =
   | HttpClientError.HttpClientError
   | Schema.SchemaError
   | RateLimitExceeded
+  | UploadContentMismatchError
   | HttpApiError.Unauthorized
   | HttpApiError.Forbidden
   | HttpApiError.NotFound
@@ -52,6 +54,8 @@ const _kindForStatus = (status: number): ApiErrorKind => {
       return "conflict"
     case 429:
       return "rate-limited"
+    case 422:
+      return "content-mismatch"
     default:
       return "bad-response"
   }
@@ -74,6 +78,7 @@ export const toApiError = (error: ApiClientError): ApiError => {
     return new ApiError("bad-request", "Invalid value for the Guestroll service")
   }
   if (Schema.is(RateLimitExceeded)(error)) return new ApiError("rate-limited", "Too many requests. Please try again in a moment.", 429)
+  if (Schema.is(UploadContentMismatchError)(error)) return new ApiError("content-mismatch", "That photo could not be saved. Please retake it.", 422)
   if (Schema.is(HttpApiError.Unauthorized)(error)) return new ApiError("unauthorized", "Not signed in", 401)
   if (Schema.is(HttpApiError.Forbidden)(error)) return new ApiError("forbidden", "Not allowed", 403)
   if (Schema.is(HttpApiError.NotFound)(error)) return new ApiError("not-found", "Not found", 404)

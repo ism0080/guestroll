@@ -37,6 +37,7 @@ export interface UploadPhotoInput {
   readonly takenAt: Date
   readonly uploadId: string
   readonly file: Blob
+  readonly thumb?: Blob
 }
 
 /** Fetches the public event card. 404 also covers draft (not-yet-live) events. */

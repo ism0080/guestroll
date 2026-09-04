@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js"
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { filterPackCss, type HostPhoto } from "@guestroll/contracts"
 import { downloadSinglePhoto, photoImageUrl } from "~/lib/api"
@@ -14,6 +14,24 @@ export interface LightboxProps {
 export const Lightbox = (props: LightboxProps): JSX.Element => {
   const [downloading, setDownloading] = createSignal(false)
 
+  onMount(() => {
+    const previousOverflow = document.body.style.overflow
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") props.onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    onCleanup(() => {
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previousOverflow
+    })
+  })
+
+  // The component remains mounted with a hidden Show, so only lock scroll while visible.
+  const lockScroll = (): void => {
+    document.body.style.overflow = props.photo === null ? "" : "hidden"
+  }
+  createEffect(() => lockScroll())
+
   const download = (): void => {
     const photo = props.photo
     if (photo === null || downloading()) return
@@ -25,7 +43,7 @@ export const Lightbox = (props: LightboxProps): JSX.Element => {
 
   return (
     <Show when={props.photo !== null}>
-      <div class="lightbox" onClick={props.onClose}>
+      <div class="lightbox" role="dialog" aria-modal="true" aria-label="Photo preview" onClick={props.onClose}>
         <button
           type="button"
           class="btn btn-circle btn-ghost absolute right-4 top-4 text-white"

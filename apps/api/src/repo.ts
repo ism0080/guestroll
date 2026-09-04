@@ -62,7 +62,6 @@ interface EventRow {
   readonly ownerId: string
   readonly slug: string
   readonly title: string
-  readonly coverKey: string | null
   readonly filterPack: string
   readonly photoLimit: number
   readonly status: EventStatus
@@ -70,7 +69,7 @@ interface EventRow {
   readonly updatedAt: string
 }
 
-const eventColumns = `id, ownerId, slug, title, coverKey, filterPack, photoLimit, status, createdAt, updatedAt`
+const eventColumns = `id, ownerId, slug, title, filterPack, photoLimit, status, createdAt, updatedAt`
 const photoColumns = `id, uploadId, eventId, cameraId, objectKey, thumbKey, filterPack, takenAt, uploadedAt`
 
 interface PhotoRow {
@@ -91,7 +90,6 @@ const _toEvent = (row: EventRow): Event =>
     ownerId: OwnerId.make(row.ownerId),
     slug: EventSlug.make(row.slug),
     title: row.title,
-    coverKey: row.coverKey === null ? undefined : ObjectKey.make(row.coverKey),
     filterPack: FilterPack.make(row.filterPack),
     photoLimit: row.photoLimit,
     status: row.status,
@@ -125,15 +123,6 @@ export const getEventBySlug = (
     const rows = yield* _run(client<EventRow>`
       SELECT ${client.literal(eventColumns)}
       FROM events WHERE slug = ${slug}`)
-    return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
-  })
-
-export const getEventById = (id: EventId): Effect.Effect<Option.Option<Event>, never, Sql> =>
-  Effect.gen(function* () {
-    const client = yield* D1Client.D1Client
-    const rows = yield* _run(client<EventRow>`
-      SELECT ${client.literal(eventColumns)}
-      FROM events WHERE id = ${id}`)
     return Option.fromNullishOr(rows[0]).pipe(Option.map(_toEvent))
   })
 
@@ -180,8 +169,9 @@ export const createEvent = (
         updatedAt: now
       })
       const inserted = yield* _run(client<{ readonly id: string }>`
-        INSERT OR IGNORE INTO events (id, ownerId, slug, title, filterPack, photoLimit, status, createdAt, updatedAt)
+        INSERT INTO events (id, ownerId, slug, title, filterPack, photoLimit, status, createdAt, updatedAt)
         VALUES (${event.id}, ${event.ownerId}, ${event.slug}, ${event.title}, ${event.filterPack}, ${event.photoLimit}, ${event.status}, ${event.createdAt.toISOString()}, ${event.updatedAt.toISOString()})
+        ON CONFLICT (slug) DO NOTHING
         RETURNING id AS id`)
       if (inserted[0] !== undefined) return event
     }
@@ -287,7 +277,7 @@ export const createCamera = (
       createdAt: now
     })
     const inserted = yield* _run(client<{ readonly id: string }>`
-      INSERT INTO cameras (id, eventId, guestId, guestName, usedCount, createdAt)
+      INSERT OR IGNORE INTO cameras (id, eventId, guestId, guestName, usedCount, createdAt)
       SELECT ${camera.id}, ${camera.eventId}, ${guestId}, ${guestName}, ${camera.usedCount}, ${camera.createdAt.toISOString()}
       WHERE NOT EXISTS (
         SELECT 1 FROM cameras WHERE eventId = ${eventId} AND guestId = ${guestId} AND resetAt IS NULL
@@ -371,6 +361,8 @@ export interface ClaimedPhoto {
   readonly contentDigest: string | null
 }
 
+export const StalePendingClaimMs = 24 * 60 * 60 * 1000
+
 /**
  * Atomically claims an upload id while enforcing the per-camera photo limit.
  * Pending claims are intentionally retained: an interrupted R2 write can be
@@ -380,11 +372,13 @@ export interface ClaimedPhoto {
 export const claimPhotoUpload = (params: {
   readonly eventId: EventId
   readonly cameraId: CameraId
-  readonly uploadId: UploadId
-  readonly photoId: PhotoId
+   readonly uploadId: UploadId
+   readonly photoId: PhotoId
+   readonly thumbKey: ObjectKey
   readonly contentDigest: string
   readonly takenAt: Date
-  readonly uploadedAt: Date
+   readonly uploadedAt: Date
+   readonly staleClaimCutoff: Date
 }): Effect.Effect<ClaimedPhoto, CameraNotFound | EventNotLive | PhotoLimitReached | UploadContentMismatch, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
@@ -398,24 +392,28 @@ export const claimPhotoUpload = (params: {
     const objectKey = ObjectKey.make(`${params.eventId}-${params.cameraId}-${params.uploadId}`)
     yield* _run(client`
       INSERT OR IGNORE INTO photos (id, uploadId, eventId, cameraId, objectKey, thumbKey, filterPack, contentDigest, takenAt, uploadedAt, status)
-      SELECT ${params.photoId}, ${params.uploadId}, ${params.eventId}, ${params.cameraId}, ${objectKey}, ${objectKey},
+       SELECT ${params.photoId}, ${params.uploadId}, ${params.eventId}, ${params.cameraId}, ${objectKey}, ${params.thumbKey},
         ${camera.filterPack}, ${params.contentDigest}, ${params.takenAt.toISOString()}, ${params.uploadedAt.toISOString()}, 'pending'
       WHERE EXISTS (SELECT 1 FROM events WHERE id = ${params.eventId} AND status = 'live')
-        AND (SELECT COUNT(*) FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId})
+        AND (SELECT COUNT(*) FROM photos
+          WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId}
+            AND (status = 'uploaded' OR uploadedAt >= ${params.staleClaimCutoff.toISOString()}))
           < ${camera.photoLimit}
       `)
-    const claim = yield* getClaimedPhoto(params.eventId, params.cameraId, params.uploadId)
+    const claim = yield* getClaimedPhoto(params.eventId, params.cameraId, params.uploadId, params.staleClaimCutoff)
     if (Option.isNone(claim)) return yield* new PhotoLimitReached()
     if (claim.value.contentDigest !== null && claim.value.contentDigest !== params.contentDigest) {
       return yield* new UploadContentMismatch()
     }
     yield* _run(client`
-      UPDATE cameras SET usedCount = (SELECT COUNT(*) FROM photos WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId})
+      UPDATE cameras SET usedCount = (SELECT COUNT(*) FROM photos
+        WHERE eventId = ${params.eventId} AND cameraId = ${params.cameraId}
+          AND (status = 'uploaded' OR uploadedAt >= ${params.staleClaimCutoff.toISOString()}))
       WHERE id = ${params.cameraId} AND eventId = ${params.eventId}`)
     return claim.value
   })
 
-export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: UploadId): Effect.Effect<Option.Option<ClaimedPhoto>, never, Sql> =>
+export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: UploadId, staleClaimCutoff: Date): Effect.Effect<Option.Option<ClaimedPhoto>, never, Sql> =>
   Effect.gen(function* () {
     const client = yield* D1Client.D1Client
     const rows = yield* _run(client<{
@@ -425,7 +423,8 @@ export const getClaimedPhoto = (eventId: EventId, cameraId: CameraId, uploadId: 
     const row = rows[0]
     if (row === undefined) return Option.none()
     const counts = yield* _run(client<{ readonly usedCount: number; readonly photoLimit: number }>`
-      SELECT (SELECT COUNT(*) FROM photos WHERE eventId = ${eventId} AND cameraId = ${cameraId}) AS usedCount, e.photoLimit
+      SELECT (SELECT COUNT(*) FROM photos WHERE eventId = ${eventId} AND cameraId = ${cameraId}
+        AND (status = 'uploaded' OR uploadedAt >= ${staleClaimCutoff.toISOString()})) AS usedCount, e.photoLimit
       FROM cameras c JOIN events e ON e.id = c.eventId
       WHERE c.id = ${cameraId} AND c.eventId = ${eventId}`)
     const count = counts[0]

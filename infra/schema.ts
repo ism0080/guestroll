@@ -6,7 +6,6 @@ export const events = sqliteTable("events", {
   ownerId: text("ownerId").notNull(),
   slug: text("slug").notNull(),
   title: text("title").notNull(),
-  coverKey: text("coverKey"),
   filterPack: text("filterPack").notNull(),
   photoLimit: integer("photoLimit").notNull(),
   status: text("status").notNull(),
@@ -31,6 +30,7 @@ export const cameras = sqliteTable("cameras", {
   createdAt: text("createdAt").notNull()
 }, (table) => [
   index("cameras_event_id_idx").on(table.eventId),
+  uniqueIndex("cameras_active_guest_unique").on(table.eventId, table.guestId).where(sql`${table.resetAt} IS NULL`),
   unique("cameras_id_event_id_unique").on(table.id, table.eventId),
   check("cameras_used_count_non_negative", sql`${table.usedCount} >= 0`)
 ])

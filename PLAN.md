@@ -13,20 +13,20 @@ there is no public gallery.
 - **Dev tooling:** done — `@effect/tsgo`, oxlint + custom plugins, `prepare` /
   `typecheck` / `lint` scripts, `AGENTS.md`. `bun run typecheck` and
   `bun run lint` pass.
-- **Domain + contracts:** done — `Owner`, `Event`, `Camera`, `Slug` models and
-  DTOs. No moderation/approval; photos have no status.
+ - **Domain + contracts:** done — `Owner`, `Event`, and `Slug` models plus DTOs.
+   No moderation/approval; photos use pending/uploaded storage state.
 - **API core:** done — event create/list/status
   (`draft → live`), camera create, multipart photo upload with atomic per-camera
   limit, host-only photo list, and host-only **ZIP download** (build + cache).
   Guests never read photos.
-- **Guest PWA:** done — SolidStart v2 SPA (`apps/guest`, `ssr: false`),
-  Tailwind 4 + daisyUI 5 (retro theme), camera capture + front/back toggle +
-  torch, client-side JPEG compression (<2 MiB), film-filtered review,
+ - **Guest PWA:** done — SolidStart v2 SPA (`apps/guest`, `ssr: false`),
+   Tailwind 4 + daisyUI 5 (`guestroll` theme), camera capture + front/back toggle +
+   torch, client-side JPEG compression (<2 MiB), thumbnail upload,
   camera-roll import, idempotent multipart upload, shot counter + done state,
   PWA manifest/icons. Deployed via `Cloudflare.Website.Vite` in the same stack.
-- **Host dashboard:** done — SolidStart v2 SPA in `apps/host` (`ssr: false`),
-  daisyUI 5 (`cupcake` theme). Passcode login → event list (create, `draft →
-  live` toggle) → per-event live photo grid (20s poll while focused, refreshes
+ - **Host dashboard:** done — SolidStart v2 SPA in `apps/host` (`ssr: false`),
+   daisyUI 5 (`guestroll` theme). Passcode login → event list (create, `draft →
+   live` toggle) → per-event live photo grid with incremental refresh, lightbox,
   on window focus) with lightbox, plus guest share-link copy. Photos are
   served by a new host-only API endpoint (`GET /events/:slug/photos/:photoId`)
   that streams the R2 object with its content type. Deployed via
@@ -405,10 +405,10 @@ Status: ✅ done · ◻️ pending
    lint` pass.
 3. **Domain + contracts:** ✅ Effect models (`Owner`, `Event`, `Camera`,
    `Slug`) + `effect/Schema` DTOs in `packages/contracts`. No moderation
-   state machine — photos are status-less.
+   state machine — photos use pending/uploaded storage state.
 4. **API core:** ✅ — event create/list/status
    (`draft → live`), camera create, multipart photo upload (`asMultipartStream`
-   → R2 + D1 batch limit), host-only photo list, and **ZIP download**: a
+    → R2 + D1 guarded claim limit), host-only photo list, and **ZIP download**: a
    `Background` service (`apps/api/src/background.ts`) backed by the Worker's
    `WorkerExecutionContext.waitUntil` (provided in `infra/Api.ts`) runs a
    background build that streams every photo through fflate's streaming ZIP
@@ -416,7 +416,7 @@ Status: ✅ done · ◻️ pending
    `POST /events/:slug/downloads` triggers-or-reports, `GET .../downloads`
    polls, `GET /events/:slug/download` streams the cached ZIP.
 5. **Guest PWA:** ✅ SolidStart v2 SPA in `apps/guest` (`ssr: false` — client
-   rendering only). daisyUI 5 + Tailwind 4 (`retro` theme, `@plugin "daisyui"`).
+    rendering only). daisyUI 5 + Tailwind 4 (`guestroll` theme, `@plugin "daisyui"`).
    Full camera loop: capture (`getUserMedia`, front/back toggle, torch),
    client-side compression to <2 MiB JPEG, film-filtered review with
    retake/keep, camera-roll import fallback, idempotent multipart upload
@@ -425,7 +425,7 @@ Status: ✅ done · ◻️ pending
    with `VITE_API_BASE` inlined from the API Worker's URL. No gallery —
    upload is one-way.
 6. **Host dashboard:** ✅ SolidStart v2 SPA in `apps/host` (`ssr: false`),
-   daisyUI 5 (`cupcake`). Passcode login → event list (create, `draft → live`)
+    daisyUI 5 (`guestroll`). Passcode login → event list (create, `draft → live`)
    → live photo grid (20s poll + window-focus refresh) with lightbox, and guest
    share-link copy. Host-only photo endpoint serves R2 bytes. ✅ downloads
    (ZIP): a "Download all" button requests the build, polls `GET /downloads`,

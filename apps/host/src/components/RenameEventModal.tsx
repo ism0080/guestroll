@@ -1,6 +1,7 @@
 import { createSignal, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { CloseIcon } from "./icons"
+import { Modal } from "./Modal"
 
 export interface RenameEventModalProps {
   readonly busy: boolean
@@ -21,8 +22,7 @@ export const RenameEventModal = (props: RenameEventModalProps): JSX.Element => {
   }
 
   return (
-    <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div class="w-full max-w-md">
+    <Modal label="Rename event" onClose={props.onClose}>
         <form class="paper-card" onSubmit={submit}>
           <div class="card-body gap-4">
             <div class="flex items-start justify-between">
@@ -66,7 +66,6 @@ export const RenameEventModal = (props: RenameEventModalProps): JSX.Element => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }

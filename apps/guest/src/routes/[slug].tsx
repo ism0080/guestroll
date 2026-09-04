@@ -4,11 +4,11 @@ import { createMutation, createQuery } from "@tanstack/solid-query"
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { ApiError, createCamera, getEvent, randomUUID } from "~/lib/api"
-import { compressCanvas, loadGalleryBitmap, renderFrame } from "~/lib/image"
+import { compressCanvas, compressThumbnail, loadGalleryBitmap, renderFrame, renderThumbnail } from "~/lib/image"
 import { deviceGuestId, deviceGuestName, saveDeviceGuestName } from "~/lib/guestId"
 import { clearCameraSession, loadCameraSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
-import { onWorkerMessage, readQueueState, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
+import { onWorkerMessage, readQueueState, retryFailedUploads, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
 import type { WorkerMessage } from "~/lib/uploadQueue"
 import { CameraScreen } from "~/components/CameraScreen"
 import { InstallPrompt } from "~/components/InstallPrompt"
@@ -39,8 +39,8 @@ const _slugRoute = (): string => {
   return params["slug"] ?? ""
 }
 
-const GuestRoute = (): JSX.Element => {
-  const slug = _slugRoute()
+const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
+  const slug = props.slug
 
   const stored = loadCameraSession(slug)
   const [camera, setCamera] = createSignal<CameraSession | null>(stored ?? null)
@@ -121,13 +121,15 @@ const GuestRoute = (): JSX.Element => {
   const [savingCount, setSavingCount] = createSignal(0)
   const [uploadError, setUploadError] = createSignal<string | null>(null)
   const [pendingCount, setPendingCount] = createSignal(0)
+  const [failedCount, setFailedCount] = createSignal(0)
+  const [failedHidden, setFailedHidden] = createSignal(false)
   let disposeWorkerMessages: (() => void) | undefined
 
   const applyUploadResult = (usedCount: number, photoLimit: number): void => {
     const loaded = eventQuery.data
     const session = camera()
     if (loaded === undefined || session === null) return
-    const updated = makeSession(session.cameraId, usedCount, photoLimit)
+    const updated = makeSession(session.cameraId, Math.max(session.usedCount, usedCount), photoLimit)
     saveCameraSession(loaded.slug, updated)
     setCamera(updated)
   }
@@ -135,23 +137,28 @@ const GuestRoute = (): JSX.Element => {
   const refreshPending = async (): Promise<void> => {
     const state = await readQueueState()
     setPendingCount(state.pending)
+    setFailedCount(state.failed)
   }
 
   const handleWorkerMessage = (message: WorkerMessage): void => {
     switch (message.type) {
       case "uploaded":
+        if (message.cameraId !== camera()?.cameraId) break
         applyUploadResult(message.usedCount, message.photoLimit)
         void refreshPending()
         break
       case "conflict":
+        if (message.cameraId !== camera()?.cameraId) break
         setForceDone(true)
         void refreshPending()
         break
       case "failed":
+        setFailedHidden(false)
         void refreshPending()
         break
       case "pending":
         setPendingCount(message.pending)
+        setFailedCount(message.failed)
         break
     }
   }
@@ -171,6 +178,10 @@ const GuestRoute = (): JSX.Element => {
   }
 
   const handleGallery = (): void => {
+    if (camera() !== null) {
+      fileInput?.click()
+      return
+    }
     createCameraMutation.mutate(undefined, {
       onSuccess: () => fileInput?.click()
     })
@@ -191,7 +202,8 @@ const GuestRoute = (): JSX.Element => {
         cameraId: session.cameraId,
         takenAt,
         uploadId: randomUUID(),
-        file: blob
+        file: blob,
+        thumb: await compressThumbnail(renderThumbnail(canvas))
       })
       setUploadError(null)
       if (outcome.kind === "queued") {
@@ -200,13 +212,7 @@ const GuestRoute = (): JSX.Element => {
         applyUploadResult(outcome.result.usedCount, outcome.result.photoLimit)
       }
     } catch (error) {
-      setUploadError(
-        error instanceof ApiError
-          ? error.kind === "conflict"
-            ? null
-            : error.message
-          : "Couldn't save that photo. It may still be queued — check back soon."
-      )
+      setUploadError(error instanceof ApiError && error.kind === "conflict" ? null : error instanceof ApiError ? error.message : "Couldn't save that photo. It may still be queued — check back soon.")
       if (error instanceof ApiError && error.kind === "conflict") {
         setForceDone(true)
       }
@@ -218,13 +224,15 @@ const GuestRoute = (): JSX.Element => {
   const handleGalleryFile = async (file: File): Promise<void> => {
     try {
       const bitmap = await loadGalleryBitmap(file)
-      const takenAt = new Date()
+      const takenAt = Number.isFinite(file.lastModified) && file.lastModified > 0
+        ? new Date(file.lastModified)
+        : new Date()
       const canvas = renderFrame(bitmap)
       bitmap.close()
       setUploadError(null)
       await persistCanvas(canvas, takenAt)
     } catch {
-      setCameraIssue(true)
+      setUploadError("That photo could not be read. Try a different image.")
     }
   }
 
@@ -234,7 +242,7 @@ const GuestRoute = (): JSX.Element => {
       const canvas = renderFrame(bitmap)
       bitmap.close()
       setUploadError(null)
-      persistCanvas(canvas, takenAt).catch(() => {})
+      void persistCanvas(canvas, takenAt)
     } catch {
       try {
         bitmap.close()
@@ -302,6 +310,7 @@ const GuestRoute = (): JSX.Element => {
             filterPack={filterPack()}
             pendingCount={() => pendingCount() + savingCount()}
             onCapture={handleCapture}
+            onCaptureError={() => setUploadError("Couldn't take that photo. Try again.")}
             onPickFromGallery={handleGallery}
             onUnavailable={() => setCameraIssue(true)}
           />
@@ -354,6 +363,27 @@ const GuestRoute = (): JSX.Element => {
         />
       </Show>
 
+      <Show when={failedCount() > 0 && !failedHidden()}>
+        <div class="fixed inset-x-0 top-4 z-30 flex justify-center px-4">
+          <div class="alert alert-warning max-w-md shadow-lg">
+            <span>{failedCount()} photo{failedCount() === 1 ? "" : "s"} could not be saved.</span>
+            <button
+              type="button"
+              class="btn btn-sm"
+              onClick={() => {
+                setFailedHidden(true)
+                void retryFailedUploads().then(() => refreshPending())
+              }}
+            >
+              Retry
+            </button>
+            <button type="button" class="btn btn-sm btn-ghost" onClick={() => setFailedHidden(true)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </Show>
+
       <input
         ref={(el) => {
           fileInput = el
@@ -373,4 +403,9 @@ const GuestRoute = (): JSX.Element => {
   )
 }
 
-export default GuestRoute
+const EventRoute = (): JSX.Element => {
+  const params = useParams()
+  return <Show keyed when={params["slug"]}>{(slug) => <GuestRoute slug={slug} />}</Show>
+}
+
+export default EventRoute

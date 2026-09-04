@@ -22,6 +22,7 @@ export interface CameraScreenProps {
   readonly filterPack: string
   readonly pendingCount: Accessor<number>
   readonly onCapture: (bitmap: ImageBitmap) => void
+  readonly onCaptureError?: () => void
   readonly onPickFromGallery: () => void
   readonly onUnavailable: () => void
 }
@@ -37,8 +38,8 @@ const _capture = async (
   onCapture: (bitmap: ImageBitmap) => void,
   zoom: number
 ): Promise<void> => {
-  flash()
   const bitmap = await captureFrame(video, zoom)
+  flash()
   onCapture(bitmap)
 }
 
@@ -109,9 +110,15 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     }
     setTorchOn(false)
     pinchStart = null
-    if (video !== undefined) {
-      video.srcObject = stream
-      await video.play()
+    try {
+      if (video !== undefined) {
+        video.srcObject = stream
+        await video.play()
+      }
+    } catch (error) {
+      stopStream(stream)
+      stream = undefined
+      throw error
     }
     await refreshCapabilities()
   }
@@ -241,7 +248,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     // Native zoom is already baked into the track frames; software zoom
     // needs the center crop applied at capture time.
     const captureZoom = softwareZoom() ? zoom() : 1
-    _capture(video, flash, props.onCapture, captureZoom).catch(() => {})
+    _capture(video, flash, props.onCapture, captureZoom).catch(() => props.onCaptureError?.())
   }
 
   const zoomLabel = createMemo(() => `${zoom().toFixed(1)}×`)

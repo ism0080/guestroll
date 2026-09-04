@@ -79,3 +79,9 @@ export class RateLimitExceeded extends Schema.Error<RateLimitExceeded>("RateLimi
 }, {
   httpApiStatus: 429
 }) {}
+
+export class UploadContentMismatchError extends Schema.Error<UploadContentMismatchError>("UploadContentMismatchError")({
+  _tag: Schema.tag("UploadContentMismatchError")
+}, {
+  httpApiStatus: 422
+}) {}

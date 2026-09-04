@@ -1,7 +1,7 @@
 import { createSignal, For } from "solid-js"
 import type { JSX } from "solid-js"
 import { filterPackCss, type HostPhoto } from "@guestroll/contracts"
-import { downloadSinglePhoto, photoImageUrl } from "~/lib/api"
+import { downloadSinglePhoto, photoThumbUrl } from "~/lib/api"
 import { DownloadIcon } from "./icons"
 
 export interface PhotoGridProps {
@@ -39,7 +39,7 @@ export const PhotoGrid = (props: PhotoGridProps): JSX.Element => {
               aria-label={`Open photo by ${resolveGuestName(photo, props.guestNames)}`}
               onClick={() => props.onSelect(photo)}
             >
-              <img src={photoImageUrl(props.slug, photo.id)} alt="" loading="lazy" crossorigin="use-credentials" style={{ filter: filterPackCss(photo.filterPack) }} />
+               <img src={photoThumbUrl(props.slug, photo.id)} alt="" loading="lazy" crossorigin="use-credentials" style={{ filter: filterPackCss(photo.filterPack) }} />
             </button>
             <figcaption class="flex items-center gap-1 px-2 py-1.5">
               <span class="min-w-0 flex-1 truncate text-xs text-base-content/70">

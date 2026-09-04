@@ -68,10 +68,6 @@ const _makeMemoryR2 = (): R2Deps & {
         contentTypes.set(key, contentType)
         return joined.length
       }),
-    get: (key) => {
-      const value = objects.get(key)
-      return value === undefined ? Effect.fail(new ObjectNotFound({ key })) : Effect.succeed(value)
-    },
     getObject: (key) => findObject(key),
     getStream: (key) => {
       const bytes = objects.get(key)
@@ -91,6 +87,9 @@ const _makeMemoryR2 = (): R2Deps & {
     },
     delete: (key) => Effect.sync(() => {
       objects.delete(key)
+    }),
+    deleteKeys: (keys) => Effect.sync(() => {
+      for (const key of keys) objects.delete(key)
     })
   }
 }
