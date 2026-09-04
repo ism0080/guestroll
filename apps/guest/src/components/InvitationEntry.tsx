@@ -52,15 +52,19 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
 
   const scan = async (): Promise<void> => {
     const Detector = _barcodeDetector()
+    // Render the preview before requesting permission. iOS can grant the
+    // camera stream immediately, so asking first races the conditional video.
+    setScanning(true)
+    setScanMessage("Requesting camera access...")
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
       if (video === undefined) throw new Error("Scanner preview is unavailable")
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
       video.srcObject = stream
       await video.play()
       const detector = Detector === undefined ? undefined : new Detector({ formats: ["qr_code"] })
       canvas = document.createElement("canvas")
       scanActive = true
-      setScanning(true)
       setScanMessage("Point your camera at the invitation QR code.")
 
       const detect = async (): Promise<void> => {
