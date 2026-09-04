@@ -9,9 +9,15 @@ import * as Output from "alchemy/Output"
  * inlined into the client bundle as `import.meta.env.VITE_API_BASE` at
  * build time via the `VITE_` env channel.
  */
-export const Guest = (apiUrl: Output.Output<string | undefined>) =>
+export const Guest = (
+  apiUrl: Output.Output<string | undefined>,
+  domain: string | undefined
+) =>
   Cloudflare.Website.Vite("Guest", {
     rootDir: "apps/guest",
+    domain: domain === undefined
+      ? undefined
+      : { name: domain, zoneName: "mackle.im" },
     env: {
       VITE_API_BASE: Output.map(apiUrl, (url) => url ?? "http://localhost:8787")
     }

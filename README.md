@@ -15,13 +15,15 @@ Set deployment configuration in the environment:
 
 ```bash
 HOST_PASSCODE=replace-with-a-long-random-passcode
-HOST_ALLOWED_ORIGIN=https://host.example.com
-GUEST_ALLOWED_ORIGIN=https://guest.example.com
+API_DOMAIN=api.example.com
+HOST_DOMAIN=dashboard.example.com
+GUEST_DOMAIN=app.example.com
 ```
 
 `HOST_PASSCODE` is stored as a Cloudflare secret binding. Alchemy generates and stores
-a separate stable session-signing secret. Both origin variables are required and must
-be exact frontend origins; the host origin controls credentialed host API requests.
+a separate stable session-signing secret. The domain variables are optional; when
+omitted, Alchemy uses the Workers' generated `workers.dev` URLs. The host origin
+controls credentialed host API requests.
 Host requests must use `credentials: "include"`; the secure cross-site cookie uses
 `SameSite=None` and requires HTTPS outside local test clients.
 

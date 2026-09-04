@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import * as Etag from "effect/unstable/http/Etag"
 import * as HttpPlatform from "effect/unstable/http/HttpPlatform"
+import * as HttpMiddleware from "effect/unstable/http/HttpMiddleware"
 import * as HttpRouter from "effect/unstable/http/HttpRouter"
 import { Bucket } from "./Bucket.ts"
 import { Database } from "./Db.ts"
@@ -29,15 +30,26 @@ const HttpPlatformStub = Layer.succeed(HttpPlatform.HttpPlatform, {
   fileWebResponse: () => Effect.die("HttpPlatform.fileWebResponse not supported")
 })
 
-export default Cloudflare.Worker(
+const isWorkersDevOrigin = (origin: string) => {
+  return /^https:\/\/[^/]+\.workers\.dev$/.test(origin)
+}
+
+export default (
+  apiDomain: string | undefined,
+  hostOrigin: string | undefined,
+  guestOrigin: string | undefined
+) => Cloudflare.Worker(
   "Api",
   {
     main: import.meta.url,
+    domain: apiDomain === undefined
+      ? undefined
+      : { name: apiDomain, zoneName: "mackle.im" },
     env: {
       HOST_PASSCODE: Config.redacted("HOST_PASSCODE"),
       HOST_SESSION_SECRET: Alchemy.makeRandom("HostSessionSecret"),
-      HOST_ALLOWED_ORIGIN: Config.string("HOST_ALLOWED_ORIGIN"),
-      GUEST_ALLOWED_ORIGIN: Config.string("GUEST_ALLOWED_ORIGIN"),
+      HOST_ALLOWED_ORIGIN: hostOrigin ?? "",
+      GUEST_ALLOWED_ORIGIN: guestOrigin ?? "",
       GUEST_RATE_LIMIT: Cloudflare.RateLimit("GUEST_RATE_LIMIT", {
         namespaceId: 1001,
         simple: { limit: 60, period: 60 }
@@ -91,13 +103,19 @@ export default Cloudflare.Worker(
           FileSystem.layerNoop({})
         ]),
         Layer.provide(
-          HttpRouter.cors({
-             allowedOrigins: [env["HOST_ALLOWED_ORIGIN"], env["GUEST_ALLOWED_ORIGIN"]],
+          HttpRouter.middleware(
+            HttpMiddleware.cors({
+              allowedOrigins: (origin) =>
+                isWorkersDevOrigin(origin) ||
+                origin === env["HOST_ALLOWED_ORIGIN"] ||
+                origin === env["GUEST_ALLOWED_ORIGIN"],
             allowedMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "b3", "traceparent", "tracestate", "baggage"],
-             credentials: true
-             ,maxAge: 86400
-          })
+              credentials: true,
+              maxAge: 86400
+            }),
+            { global: true }
+          )
         )
       )
     )

@@ -67,6 +67,11 @@ const _notFound = () => new HttpApiError.NotFound()
 const _badRequest = () => new HttpApiError.BadRequest()
 const _unauthorized = () => new HttpApiError.Unauthorized()
 
+const _isAllowedOrigin = (origin: string | undefined, configuredOrigin: string) => {
+  if (origin === configuredOrigin && configuredOrigin !== "") return true
+  return origin !== undefined && /^https:\/\/[^/]+\.workers\.dev$/.test(origin)
+}
+
 const _requireRateLimit = (
   request: HttpServerRequest.HttpServerRequest,
   scope: string,
@@ -82,7 +87,7 @@ const _requireRateLimit = (
 const _requireHost = (request: HttpServerRequest.HttpServerRequest) =>
   Effect.gen(function* () {
     const env = yield* WorkerEnv
-    if (request.headers.origin !== env.HOST_ALLOWED_ORIGIN) return yield* _unauthorized()
+    if (!_isAllowedOrigin(request.headers.origin, env.HOST_ALLOWED_ORIGIN)) return yield* _unauthorized()
     const auth = yield* HostAuth
     const ownerId = yield* auth.authorize(request)
     if (Option.isNone(ownerId)) return yield* _unauthorized()
@@ -92,7 +97,7 @@ const _requireHost = (request: HttpServerRequest.HttpServerRequest) =>
 const _requireGuestOrigin = (request: HttpServerRequest.HttpServerRequest) =>
   Effect.gen(function* () {
     const env = yield* WorkerEnv
-    if (request.headers.origin !== env.GUEST_ALLOWED_ORIGIN) return yield* _unauthorized()
+    if (!_isAllowedOrigin(request.headers.origin, env.GUEST_ALLOWED_ORIGIN)) return yield* _unauthorized()
     return undefined
   })
 
@@ -273,7 +278,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
       Effect.gen(function* () {
         const env = yield* WorkerEnv
         yield* _requireRateLimit(request, "host-login", env.LOGIN_RATE_LIMIT)
-        if (request.headers.origin !== env.HOST_ALLOWED_ORIGIN) return yield* _unauthorized()
+        if (!_isAllowedOrigin(request.headers.origin, env.HOST_ALLOWED_ORIGIN)) return yield* _unauthorized()
         const auth = yield* HostAuth
         const token = yield* auth.authenticate(payload.passcode)
         if (Option.isNone(token)) return yield* _unauthorized()
