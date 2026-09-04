@@ -230,20 +230,17 @@ export const triggerAutoFocus = async (stream: MediaStream): Promise<boolean> =>
 };
 
 /**
- * Captures the current video frame as an ImageBitmap. Drawing through a canvas
- * avoids `createImageBitmap(video)`, which iOS embedded browsers commonly
- * reject even while their live camera preview is working. When `zoom` is
+ * Captures the current video frame into a canvas. Avoiding `createImageBitmap`
+ * entirely is necessary for iOS embedded browsers, which can show a live video
+ * stream but do not always support creating a bitmap from it. When `zoom` is
  * greater than 1, the center 1/zoom region is cropped and upscaled back to
  * full resolution so the saved photo matches the software-zoom preview.
  */
-export const captureFrame = (video: HTMLVideoElement, zoom = 1): Promise<ImageBitmap> => {
-  if (!("createImageBitmap" in window)) {
-    return Promise.reject(new Error("createImageBitmap is not supported"))
-  }
+export const captureFrame = (video: HTMLVideoElement, zoom = 1): HTMLCanvasElement => {
   const sourceWidth = video.videoWidth
   const sourceHeight = video.videoHeight
   if (!(sourceWidth > 0) || !(sourceHeight > 0)) {
-    return Promise.reject(new Error("Camera frame is not ready"))
+    throw new Error("Camera frame is not ready")
   }
   const cropZoom = zoom > 1.01 ? zoom : 1
   const cropWidth = Math.floor(sourceWidth / cropZoom)
@@ -255,8 +252,8 @@ export const captureFrame = (video: HTMLVideoElement, zoom = 1): Promise<ImageBi
   canvas.height = sourceHeight
   const context = canvas.getContext("2d")
   if (context === null) {
-    return Promise.reject(new Error("Canvas 2D context unavailable"))
+    throw new Error("Canvas 2D context unavailable")
   }
   context.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, sourceWidth, sourceHeight)
-  return createImageBitmap(canvas)
+  return canvas
 };

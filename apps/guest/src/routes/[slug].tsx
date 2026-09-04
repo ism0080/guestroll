@@ -249,25 +249,10 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
     }
   }
 
-  const handleCapture = (bitmap: ImageBitmap): void => {
-    try {
-      if (!canCapture()) {
-        bitmap.close()
-        return
-      }
-      const takenAt = new Date()
-      const canvas = renderFrame(bitmap)
-      bitmap.close()
-      setUploadError(null)
-      void persistCanvas(canvas, takenAt)
-    } catch {
-      try {
-        bitmap.close()
-      } catch {
-        // Bitmap cleanup is best-effort.
-      }
-      setUploadError("Couldn't save that photo. Try again.")
-    }
+  const handleCapture = (canvas: HTMLCanvasElement): void => {
+    if (!canCapture()) return
+    setUploadError(null)
+    void persistCanvas(canvas, new Date())
   }
 
   const handleRetry = (): void => {

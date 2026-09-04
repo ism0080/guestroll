@@ -22,7 +22,7 @@ export interface CameraScreenProps {
   readonly filterPack: string
   readonly pendingCount: Accessor<number>
   readonly canCapture: Accessor<boolean>
-  readonly onCapture: (bitmap: ImageBitmap) => void
+  readonly onCapture: (canvas: HTMLCanvasElement) => void
   readonly onCaptureError?: () => void
   readonly onPickFromGallery: () => void
   readonly onUnavailable: () => void
@@ -37,12 +37,12 @@ interface FocusPoint {
 const _capture = async (
   video: HTMLVideoElement,
   flash: () => void,
-  onCapture: (bitmap: ImageBitmap) => void,
+  onCapture: (canvas: HTMLCanvasElement) => void,
   zoom: number
 ): Promise<void> => {
-  const bitmap = await captureFrame(video, zoom)
+  const canvas = captureFrame(video, zoom)
   flash()
-  onCapture(bitmap)
+  onCapture(canvas)
 }
 
 const _shortLensLabel = (device: CameraDevice, index: number): string => {
