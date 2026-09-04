@@ -49,7 +49,7 @@ interface Navigator {
   readonly standalone?: boolean
 }
 
-/** Barcode Detection API, supported by Chromium but not yet in TypeScript's DOM lib. */
+/** Chromium's QR detector; iOS uses the bundled decoder instead. */
 interface BarcodeDetector {
   detect(source: ImageBitmapSource): Promise<ReadonlyArray<{ readonly rawValue?: string }>>
 }
@@ -61,3 +61,5 @@ interface BarcodeDetectorConstructor {
 interface Window {
   BarcodeDetector?: BarcodeDetectorConstructor
 }
+
+/** Barcode Detection API, supported by Chromium but not yet in TypeScript's DOM lib. */

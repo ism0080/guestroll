@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
+import jsQR from "jsqr"
 import { invitationSlug } from "~/lib/invitation"
 
 interface BarcodeDetectorLike {
@@ -28,6 +29,7 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
   let stream: MediaStream | undefined
   let scanTimer: number | undefined
   let scanActive = false
+  let canvas: HTMLCanvasElement | undefined
 
   const stopScanning = (): void => {
     scanActive = false
@@ -50,17 +52,13 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
 
   const scan = async (): Promise<void> => {
     const Detector = _barcodeDetector()
-    if (Detector === undefined) {
-      setScanMessage("QR scanning is not available in this browser. Enter the invitation code instead.")
-      return
-    }
-
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
       if (video === undefined) throw new Error("Scanner preview is unavailable")
       video.srcObject = stream
       await video.play()
-      const detector = new Detector({ formats: ["qr_code"] })
+      const detector = Detector === undefined ? undefined : new Detector({ formats: ["qr_code"] })
+      canvas = document.createElement("canvas")
       scanActive = true
       setScanning(true)
       setScanMessage("Point your camera at the invitation QR code.")
@@ -68,8 +66,19 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
       const detect = async (): Promise<void> => {
         if (!scanActive || video === undefined) return
         try {
-          const codes = await detector.detect(video)
-          const rawValue = codes[0]?.rawValue
+          let rawValue: string | undefined
+          if (detector !== undefined) {
+            rawValue = (await detector.detect(video))[0]?.rawValue
+          } else if (canvas !== undefined && video.videoWidth > 0 && video.videoHeight > 0) {
+            const scale = Math.min(1, 800 / video.videoWidth)
+            canvas.width = Math.round(video.videoWidth * scale)
+            canvas.height = Math.round(video.videoHeight * scale)
+            const context = canvas.getContext("2d", { willReadFrequently: true })
+            if (context !== null) {
+              context.drawImage(video, 0, 0, canvas.width, canvas.height)
+              rawValue = jsQR(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)?.data
+            }
+          }
           if (rawValue !== undefined) {
             if (invitationSlug(rawValue) === undefined) {
               setError("That QR code is not a GuestRoll invitation.")
@@ -91,7 +100,7 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
   }
 
   onMount(() => {
-    if (_barcodeDetector() !== undefined) setScanMessage("Scan the QR code on the invitation, or enter its code below.")
+    setScanMessage("Scan the QR code on the invitation, or enter its code below.")
   })
 
   onCleanup(stopScanning)
