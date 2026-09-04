@@ -25,6 +25,7 @@ export interface CameraScreenProps {
   readonly onCaptureError?: () => void
   readonly onPickFromGallery: () => void
   readonly onUnavailable: () => void
+  readonly onHome: () => void
 }
 
 interface FocusPoint {
@@ -302,6 +303,16 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
             </div>
           </Show>
         </div>
+      </div>
+
+      <div class="pointer-events-auto absolute left-4 top-4 z-20">
+        <button
+          type="button"
+          class="btn btn-sm border-2 border-white/70 bg-black/45 text-white shadow-lg backdrop-blur-sm"
+          onClick={props.onHome}
+        >
+          Home
+        </button>
       </div>
 
       <div class="pointer-events-none absolute inset-x-0 bottom-28 z-10 flex flex-col items-center gap-2 px-6">

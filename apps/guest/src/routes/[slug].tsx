@@ -1,12 +1,12 @@
 import { Title } from "@solidjs/meta"
-import { useParams } from "@solidjs/router"
+import { useNavigate, useParams } from "@solidjs/router"
 import { createMutation, createQuery } from "@tanstack/solid-query"
-import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { ApiError, createCamera, getEvent, randomUUID } from "~/lib/api"
 import { compressCanvas, compressThumbnail, loadGalleryBitmap, renderFrame, renderThumbnail } from "~/lib/image"
 import { deviceGuestId, deviceGuestName, saveDeviceGuestName } from "~/lib/guestId"
-import { clearCameraSession, loadCameraSession, saveCameraSession } from "~/lib/session"
+import { clearCameraSession, loadCameraSession, rememberEventSession, saveCameraSession } from "~/lib/session"
 import type { CameraSession } from "~/lib/session"
 import { onWorkerMessage, readQueueState, retryFailedUploads, submitPhoto, wakeWorker } from "~/lib/uploadQueue"
 import type { WorkerMessage } from "~/lib/uploadQueue"
@@ -41,6 +41,7 @@ const _slugRoute = (): string => {
 
 const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   const slug = props.slug
+  const navigate = useNavigate()
 
   const stored = loadCameraSession(slug)
   const [camera, setCamera] = createSignal<CameraSession | null>(stored ?? null)
@@ -67,6 +68,11 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
   }))
 
   const filterPack = createMemo<string>(() => eventQuery.data?.filterPack ?? "film")
+
+  createEffect(() => {
+    const event = eventQuery.data
+    if (event !== undefined) rememberEventSession(event.slug, event.title)
+  })
 
   const phase = createMemo<Phase>(() => {
     if (fatalError() !== null) return "error"
@@ -313,6 +319,7 @@ const GuestRoute = (props: { readonly slug: string }): JSX.Element => {
             onCaptureError={() => setUploadError("Couldn't take that photo. Try again.")}
             onPickFromGallery={handleGallery}
             onUnavailable={() => setCameraIssue(true)}
+            onHome={() => navigate("/")}
           />
           <Show when={cameraIssue()}>
             <div class="fixed inset-x-0 bottom-24 z-20 flex justify-center px-4">

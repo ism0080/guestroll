@@ -16,6 +16,15 @@ export const CameraSession = Schema.Struct({
 export type CameraSession = typeof CameraSession.Type
 
 const _keyFor = (slug: string): string => `guestroll.camera.${slug}`
+const SESSION_INDEX_KEY = "guestroll.camera.index"
+
+const SavedEventSession = Schema.Struct({ slug: Schema.NonEmptyString, title: Schema.NonEmptyString })
+const SavedEventSessions = Schema.Array(SavedEventSession)
+
+export interface SavedEventSession {
+  readonly slug: string
+  readonly title: string
+}
 
 const _storage = (): Storage | undefined => {
   try {
@@ -57,4 +66,29 @@ export const clearCameraSession = (slug: string): void => {
   const storage = _storage()
   if (storage === undefined) return
   storage.removeItem(_keyFor(slug))
+}
+
+/** Adds an event to the local list used by the home screen session switcher. */
+export const rememberEventSession = (slug: string, title: string): void => {
+  const storage = _storage()
+  if (storage === undefined) return
+  const sessions = listEventSessions().filter((session) => session.slug !== slug)
+  storage.setItem(SESSION_INDEX_KEY, JSON.stringify([{ slug, title }, ...sessions]))
+}
+
+/** Returns locally joined events whose camera session still exists. */
+export const listEventSessions = (): ReadonlyArray<SavedEventSession> => {
+  const storage = _storage()
+  if (storage === undefined) return []
+  const raw = storage.getItem(SESSION_INDEX_KEY)
+  if (raw === null) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Option.match(Schema.decodeUnknownOption(SavedEventSessions)(parsed), {
+      onNone: () => [],
+      onSome: (sessions) => sessions.filter((session) => loadCameraSession(session.slug) !== undefined)
+    })
+  } catch {
+    return []
+  }
 }
