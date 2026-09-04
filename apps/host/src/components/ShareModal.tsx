@@ -92,14 +92,18 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
             <For each={Array.from({ length: TABLE_CARD_COUNT }, (_, index) => index)}>
               {() => (
                 <div class="table-card">
+                  <div class="table-card-eyebrow">GuestRoll</div>
                   <div class="table-card-title">{props.title}</div>
-                  <Show
-                    when={qr()}
-                    fallback={<div class="table-card-qr table-card-qr-placeholder" />}
-                  >
-                    <img src={qr()!} alt="" class="table-card-qr" />
-                  </Show>
+                  <div class="table-card-qr-frame">
+                    <Show
+                      when={qr()}
+                      fallback={<div class="table-card-qr table-card-qr-placeholder" />}
+                    >
+                      <img src={qr()!} alt="" class="table-card-qr" />
+                    </Show>
+                  </div>
                   <div class="table-card-text">Scan to add your photos</div>
+                  <div class="table-card-perforations" />
                 </div>
               )}
             </For>

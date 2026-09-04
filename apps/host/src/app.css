@@ -35,36 +35,65 @@
   border-radius: 0.5rem;
 }
 
-/* Printable table cards (rendered via a body portal; hidden on screen) */
+/* Printable table cards (rendered via a body portal; hidden on screen).
+   Themed to match the dashboard paper-card: cream paper, 2px ink border,
+   hard offset shadow, rounded type + mono film-counter accents. */
+.print-area {
+  background: #fff;
+}
+
 .table-card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 6mm;
   padding: 8mm;
+  background: #fff;
 }
 
 .table-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 4mm;
-  border: 1px solid #000;
-  border-radius: 4mm;
-  padding: 6mm;
+  justify-content: center;
+  gap: 3.5mm;
+  border: 0.7mm solid var(--guestroll-ink, #201d18);
+  border-radius: 5mm;
+  background: var(--color-base-100, #f6f2e9);
+  box-shadow: 2mm 2mm 0 0 var(--guestroll-ink, #201d18);
+  padding: 7mm 6mm;
   text-align: center;
   break-inside: avoid;
 }
 
-.table-card-title {
-  font-size: 20pt;
+.table-card-eyebrow {
+  font-family: var(--guestroll-mono, ui-monospace, monospace);
+  font-size: 8pt;
   font-weight: 700;
-  color: #000;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-primary, #e8503a);
+}
+
+.table-card-title {
+  font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font-size: 20pt;
+  font-weight: 800;
+  line-height: 1.1;
+  text-wrap: balance;
+  color: var(--color-base-content, #201d18);
+}
+
+.table-card-qr-frame {
+  border: 0.7mm solid var(--guestroll-ink, #201d18);
+  border-radius: 3mm;
+  background: #fff;
+  padding: 3mm;
 }
 
 .table-card-qr {
-  width: 58mm;
-  height: 58mm;
+  width: 56mm;
+  height: 56mm;
+  display: block;
 }
 
 .table-card-qr-placeholder {
@@ -72,6 +101,46 @@
 }
 
 .table-card-text {
-  font-size: 11pt;
-  color: #333;
+  font-family: var(--guestroll-mono, ui-monospace, monospace);
+  font-size: 10pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-base-content, #201d18);
+  opacity: 0.7;
+}
+
+.table-card-perforations {
+  width: 100%;
+  height: 2mm;
+  border-radius: 9999px;
+  opacity: 0.35;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--guestroll-ink, #201d18) 0 2mm,
+    transparent 2mm 4.5mm
+  );
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .table-card {
+    break-inside: avoid;
+  }
 }
