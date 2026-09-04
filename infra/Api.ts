@@ -1,7 +1,9 @@
 import * as Cloudflare from "alchemy/Cloudflare"
 import * as Alchemy from "alchemy"
 import * as Config from "effect/Config"
-import ApiWorker from "./ApiWorker.ts"
+import { ApiWorkerProgram } from "./ApiWorker.ts"
+import { Bucket } from "./Bucket.ts"
+import { Database } from "./Db.ts"
 
 export default (
   apiDomain: string | undefined,
@@ -11,14 +13,15 @@ export default (
 ) => Cloudflare.Worker(
   "Api",
   {
-    // The resource factory is not the deployed Worker entrypoint. The
-    // dedicated runtime module exports the Effect program consumed by the
-    // generated Alchemy bridge.
+    // The runtime module exports the Cloudflare.Worker wrapper consumed by
+    // Alchemy's generated bridge.
     main: new URL("./ApiWorker.ts", import.meta.url).href,
     domain: apiDomain === undefined
       ? undefined
       : { name: apiDomain, zoneName },
     env: {
+      DB: Database,
+      BUCKET: Bucket,
       HOST_PASSCODE: Config.redacted("HOST_PASSCODE"),
       HOST_SESSION_SECRET: Alchemy.makeRandom("HostSessionSecret"),
       HOST_ALLOWED_ORIGIN: hostOrigin ?? "",
@@ -33,5 +36,5 @@ export default (
       })
     }
   },
-  ApiWorker
+  ApiWorkerProgram
 )

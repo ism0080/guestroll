@@ -23,7 +23,7 @@ const HttpPlatformStub = Layer.succeed(HttpPlatform.HttpPlatform, {
 const isWorkersDevOrigin = (origin: string) => /^https:\/\/[^/]+\.workers\.dev$/.test(origin)
 
 /** Runtime Effect entrypoint loaded by Alchemy's generated Worker bridge. */
-const ApiWorker = Effect.gen(function* () {
+export const ApiWorkerProgram = Effect.gen(function* () {
   const env = yield* Cloudflare.WorkerEnvironment
   const exec = yield* Cloudflare.WorkerExecutionContext
 
@@ -84,4 +84,8 @@ const ApiWorker = Effect.gen(function* () {
   }
 })
 
-export default ApiWorker
+export default Cloudflare.Worker(
+  "Api",
+  { main: import.meta.url },
+  ApiWorkerProgram
+)
