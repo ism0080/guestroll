@@ -499,6 +499,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
         )
         const now = yield* _nowDate
         const photoCount = yield* repo.countUploadedPhotos(event.id)
+        if (photoCount === 0) return new DownloadStatus({ status: "none", photoCount })
         const existing = yield* repo.getDownload(event.id)
         const isFreshReady = Option.isSome(existing) &&
           existing.value.status === "ready" &&
@@ -534,6 +535,7 @@ export const HostLive = HttpApiBuilder.group(EventsApi, "host", (handlers) =>
           Effect.flatMap(Effect.fromOption(() => _notFound()))
         )
         const photoCount = yield* repo.countUploadedPhotos(event.id)
+        if (photoCount === 0) return new DownloadStatus({ status: "none", photoCount })
         const row = yield* repo.getDownload(event.id)
         return Option.match(row, {
           onNone: () => new DownloadStatus({ status: "none", photoCount }),

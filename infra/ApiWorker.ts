@@ -39,13 +39,10 @@ export const ApiWorkerProgram = Effect.gen(function* () {
     LOGIN_RATE_LIMIT: env["LOGIN_RATE_LIMIT"]
   })
 
-  // SAFETY: the deferred execution context accepts the same Effect value as
-  // Background, and the bridge supplies RuntimeContext for each request.
-  const _runInBackground = (effect: Effect.Effect<never, never, never>) => exec.waitUntil(effect)
   const BackgroundLive = Layer.succeed(Background, {
-    // SAFETY: the deferred execution context accepts the same Effect value as
-    // Background, and the bridge supplies RuntimeContext for each request.
-    waitUntil: _runInBackground as BackgroundDeps["waitUntil"]
+    // SAFETY: Alchemy runs the Effect with the active request context before
+    // registering its promise with the Worker's native `ctx.waitUntil`.
+    waitUntil: ((effect) => exec.waitUntil(effect)) as BackgroundDeps["waitUntil"]
   })
 
   const fetchEffect = yield* HttpRouter.toHttpEffect(

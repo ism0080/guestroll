@@ -208,7 +208,7 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
                 <QrIcon class="h-4 w-4" />
                 Share & print
               </button>
-              <DownloadButton slug={slug} />
+              <DownloadButton slug={slug} photoCount={photosQuery.data?.length ?? 0} />
               <button
                 type="button"
                 class="btn btn-ghost btn-sm border-2 border-neutral"

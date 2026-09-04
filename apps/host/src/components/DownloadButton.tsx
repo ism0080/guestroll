@@ -14,7 +14,7 @@ const startFileDownload = async (slug: string): Promise<void> => {
   await saveBlob(blob, `${slug}-photos.zip`, { title: `${slug}-photos.zip` })
 }
 
-export const DownloadButton = (props: { readonly slug: string }): JSX.Element => {
+export const DownloadButton = (props: { readonly slug: string; readonly photoCount: number }): JSX.Element => {
   const [phase, setPhase] = createSignal<"idle" | "building" | "downloading" | "error">("idle")
   const [message, setMessage] = createSignal("")
   let pollTimer: number | undefined
@@ -28,14 +28,13 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
   const handleStatus = async (status: DownloadStatus): Promise<void> => {
     if (pollTimer === undefined && phase() !== "building") return
     if (status.status === "ready") {
-    if (pollTimer === undefined && phase() !== "building") return
-    if (pollTimer !== undefined) window.clearInterval(pollTimer)
-    pollTimer = undefined
-    setPhase("downloading")
+      if (pollTimer !== undefined) window.clearInterval(pollTimer)
+      pollTimer = undefined
+      setPhase("downloading")
       try {
         await startFileDownload(props.slug)
       } catch {
-         setPhase("error")
+        setPhase("error")
         setMessage("Couldn't download the ZIP — try again.")
       }
       return
@@ -45,10 +44,17 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
       pollTimer = undefined
       setPhase("error")
       setMessage("The ZIP build failed — try again.")
+      return
+    }
+    if (status.status === "none") {
+      if (pollTimer !== undefined) window.clearInterval(pollTimer)
+      pollTimer = undefined
+      setPhase("idle")
     }
   }
 
   const start = async (): Promise<void> => {
+    if (props.photoCount === 0) return
     setPhase("building")
     setMessage("Preparing ZIP…")
     try {
@@ -80,7 +86,7 @@ export const DownloadButton = (props: { readonly slug: string }): JSX.Element =>
       <button
         type="button"
         class="btn btn-ghost btn-sm border-2 border-neutral"
-      disabled={phase() === "building" || phase() === "downloading"}
+        disabled={props.photoCount === 0 || phase() === "building" || phase() === "downloading"}
         onClick={() => void start()}
       >
         <Show when={phase() === "building"} fallback={<>Download all</>}>
