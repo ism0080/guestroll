@@ -1,3 +1,5 @@
+@import "tailwindcss";
+@plugin "daisyui";
 @import "@guestroll/ui/theme.css";
 
 /* Photo grid tiles fill their square cell */
