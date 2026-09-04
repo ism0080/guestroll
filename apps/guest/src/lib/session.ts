@@ -76,6 +76,15 @@ export const rememberEventSession = (slug: string, title: string): void => {
   storage.setItem(SESSION_INDEX_KEY, JSON.stringify([{ slug, title }, ...sessions]))
 }
 
+/** Removes a locally saved active roll and its associated camera session. */
+export const removeEventSession = (slug: string): void => {
+  const storage = _storage()
+  if (storage === undefined) return
+  storage.removeItem(_keyFor(slug))
+  const sessions = listEventSessions().filter((session) => session.slug !== slug)
+  storage.setItem(SESSION_INDEX_KEY, JSON.stringify(sessions))
+}
+
 /** Returns locally joined events whose camera session still exists. */
 export const listEventSessions = (): ReadonlyArray<SavedEventSession> => {
   const storage = _storage()

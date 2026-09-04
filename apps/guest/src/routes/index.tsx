@@ -3,13 +3,17 @@ import type { JSX } from "solid-js"
 import { CameraBody } from "@guestroll/ui"
 import { useNavigate } from "@solidjs/router"
 import { InvitationEntry } from "~/components/InvitationEntry"
-import { listEventSessions } from "~/lib/session"
+import { listEventSessions, removeEventSession } from "~/lib/session"
 import { For, onMount, createSignal, Show } from "solid-js"
 
 const Home = (): JSX.Element => {
   const navigate = useNavigate()
   const [sessions, setSessions] = createSignal<ReadonlyArray<{ readonly slug: string; readonly title: string }>>([])
   onMount(() => setSessions(listEventSessions()))
+  const removeActiveRoll = (slug: string): void => {
+    removeEventSession(slug)
+    setSessions((current) => current.filter((session) => session.slug !== slug))
+  }
   return (
     <div class="flex min-h-dvh flex-col items-center justify-center px-6 py-10">
       <Title>GuestRoll</Title>
@@ -24,17 +28,31 @@ const Home = (): JSX.Element => {
             <div class="space-y-2">
               <For each={sessions()}>
                 {(session) => (
-                  <button
-                    type="button"
-                    class="flex w-full items-center justify-between rounded-box border-2 border-neutral bg-base-100 p-3 text-left shadow-[3px_3px_0_0_var(--guestroll-ink)]"
-                    onClick={() => navigate(`/${session.slug}`)}
-                  >
-                    <span>
+                  <div class="flex items-center gap-3 rounded-box border-2 border-neutral bg-base-100 p-3 shadow-[3px_3px_0_0_var(--guestroll-ink)]">
+                    <button
+                      type="button"
+                      class="min-w-0 flex-1 text-left"
+                      onClick={() => navigate(`/${session.slug}`)}
+                    >
                       <span class="block font-bold text-base-content">{session.title}</span>
                       <span class="font-mono text-xs text-base-content/50">{session.slug}</span>
-                    </span>
-                    <span class="text-sm font-semibold text-primary">Rejoin</span>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      class="text-sm font-semibold text-primary"
+                      onClick={() => navigate(`/${session.slug}`)}
+                    >
+                      Rejoin
+                    </button>
+                    <button
+                      type="button"
+                      class="text-sm font-semibold text-error"
+                      aria-label={`Remove ${session.title} from active rolls`}
+                      onClick={() => removeActiveRoll(session.slug)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </For>
             </div>
