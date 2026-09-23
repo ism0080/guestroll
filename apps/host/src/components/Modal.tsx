@@ -20,8 +20,8 @@ export const Modal = (props: { readonly label: string; readonly onClose: () => v
     })
   })
   return (
-    <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={props.onClose}>
-      <div ref={(element) => { dialog = element }} role="dialog" aria-modal="true" aria-label={props.label} tabindex="-1" class="w-full max-w-md" onClick={(event) => event.stopPropagation()}>
+    <div class="fixed inset-0 z-40 flex overflow-y-auto overscroll-contain bg-black/50 p-4" onClick={props.onClose}>
+      <div ref={(element) => { dialog = element }} role="dialog" aria-modal="true" aria-label={props.label} tabindex="-1" class="m-auto w-full max-w-md" onClick={(event) => event.stopPropagation()}>
         {props.children}
       </div>
     </div>

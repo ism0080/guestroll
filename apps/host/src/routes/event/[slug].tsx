@@ -151,8 +151,8 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
        <Show when={sessionQuery.data?.authenticated === true && event() !== undefined}>
         <Title>{event()!.title} — Guestroll</Title>
         <div class="mx-auto max-w-5xl px-4 py-8">
-          <div class="mb-6 flex items-start justify-between gap-4">
-            <div>
+          <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0">
               <button
                 type="button"
                 class="btn btn-ghost btn-sm mb-2 -ml-3"
@@ -160,8 +160,8 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
               >
                 ← All events
               </button>
-              <div class="flex items-center gap-3">
-                <h1 class="text-3xl font-extrabold">{event()!.title}</h1>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 class="break-words text-3xl font-extrabold">{event()!.title}</h1>
                 <Show
                   when={event()!.status === "live"}
                   fallback={
@@ -176,12 +176,15 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
                   </span>
                 </Show>
               </div>
-              <p class="film-counter mt-2 flex items-center gap-1 text-sm text-base-content/60">
-                <span class="font-bold text-primary">{photosQuery.data?.length ?? "..."}</span> photos
-                · {event()!.photoLimit} shots per guest
+              <p class="film-counter mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-base-content/60">
+                <span>
+                  <span class="font-bold text-primary">{photosQuery.data?.length ?? "..."}</span> photos
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>{event()!.photoLimit} shots per guest</span>
                 <button
                   type="button"
-                  class="btn btn-ghost btn-xs ml-1"
+                  class="btn btn-ghost btn-xs"
                   aria-label="Edit shot count"
                   onClick={() => setShotLimitOpen(true)}
                 >
@@ -191,7 +194,7 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
               </p>
             </div>
 
-            <div class="flex flex-col items-stretch gap-2">
+            <div class="grid grid-cols-2 items-stretch gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-col">
               <button
                 type="button"
                 class="btn btn-ghost btn-sm border-2 border-neutral"
@@ -239,10 +242,10 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
                 <ul class="mt-2 divide-y-2 divide-base-300">
                   <For each={camerasQuery.data}>
                     {(roll) => (
-                      <li class="flex items-center justify-between gap-4 py-3">
+                      <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
                         <div class="min-w-0">
                           <p class="truncate font-semibold">{roll.guestName ?? "Anonymous guest"}</p>
-                          <p class="film-counter text-sm text-base-content/60">
+                          <p class="film-counter whitespace-nowrap text-sm text-base-content/60">
                             {roll.usedCount}/{roll.photoLimit} photos
                           </p>
                         </div>
@@ -282,10 +285,8 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
        </Show>
 
        <Show when={statusError() !== null || camerasError() !== null}>
-         <div class="mx-auto max-w-5xl px-4">
-           <div class="mb-4 rounded-field border-2 border-error bg-error/10 p-3 text-sm">
-             {statusError() ?? camerasError()}
-           </div>
+         <div class="mb-4 rounded-field border-2 border-error bg-error/10 p-3 text-sm">
+           {statusError() ?? camerasError()}
          </div>
        </Show>
 
