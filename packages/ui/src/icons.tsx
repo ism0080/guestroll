@@ -12,6 +12,8 @@ const icon = (props: IconProps, children: JSX.Element): JSX.Element => (
 
 export const CameraIcon = (props: IconProps): JSX.Element => icon(props, <><path d="M4 8h3l1.5-2.5a1 1 0 0 1 .87-.5h5.26a1 1 0 0 1 .87.5L17 8h3a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3.5" /></>)
 export const CheckIcon = (props: IconProps): JSX.Element => icon(props, <path d="m5 13 4 4L19 7" stroke-width="2" />)
+export const ChevronLeftIcon = (props: IconProps): JSX.Element => icon(props, <path d="m15 6-6 6 6 6" stroke-width="2" />)
+export const ChevronRightIcon = (props: IconProps): JSX.Element => icon(props, <path d="m9 6 6 6-6 6" stroke-width="2" />)
 export const CloseIcon = (props: IconProps): JSX.Element => icon(props, <path d="M6 6l12 12M18 6 6 18" stroke-width="2" />)
 export const CopyIcon = (props: IconProps): JSX.Element => icon(props, <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></>)
 export const DownloadIcon = (props: IconProps): JSX.Element => icon(props, <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" /></>)

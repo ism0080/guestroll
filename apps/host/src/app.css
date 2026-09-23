@@ -26,6 +26,10 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.9);
+  /* Let horizontal gestures reach the swipe handler while vertical pans
+     stay with the browser. */
+  touch-action: pan-y;
+  user-select: none;
 }
 
 .lightbox img {
@@ -33,6 +37,16 @@
   max-height: 88vh;
   object-fit: contain;
   border-radius: 0.5rem;
+  /* Suppress the native image ghost-drag during a swipe. */
+  -webkit-user-drag: none;
+}
+
+/* Prev/next chevrons, vertically centred over the photo. */
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.35);
 }
 
 /* Printable table cards (rendered via a body portal; hidden on screen).

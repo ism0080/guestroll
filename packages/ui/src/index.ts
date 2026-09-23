@@ -2,6 +2,8 @@ export { CameraBody, FilmCounter } from "./camera-art"
 export {
   CameraIcon,
   CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CloseIcon,
   CopyIcon,
   DownloadIcon,

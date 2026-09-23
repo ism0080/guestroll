@@ -1,7 +1,7 @@
 import { Title } from "@solidjs/meta"
 import { Navigate, useNavigate, useParams } from "@solidjs/router"
 import { createMutation, createQuery, useQueryClient } from "@tanstack/solid-query"
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
+import { createMemo, createSignal, For, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import type { EventStatus, HostCamera, HostPhoto } from "@guestroll/contracts"
 import {
@@ -31,14 +31,6 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
   const copyFeedback = createCopyFeedback()
   const [shareOpen, setShareOpen] = createSignal(false)
   const [shotLimitOpen, setShotLimitOpen] = createSignal(false)
-
-  onMount(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setSelected(null)
-    }
-    window.addEventListener("keydown", onKey)
-    onCleanup(() => window.removeEventListener("keydown", onKey))
-  })
 
   const sessionQuery = createQuery(() => ({
     queryKey: SESSION_QUERY_KEY,
@@ -351,7 +343,14 @@ const EventDetail = (props: { readonly slug: string }): JSX.Element => {
         </div>
       </Show>
 
-      <Lightbox slug={slug} photo={selected()} guestNames={guestNames()} onClose={() => setSelected(null)} />
+      <Lightbox
+        slug={slug}
+        photo={selected()}
+        photos={photosQuery.data ?? []}
+        guestNames={guestNames()}
+        onNavigate={setSelected}
+        onClose={() => setSelected(null)}
+      />
 
       <Show when={shareOpen() && event() !== undefined}>
         <ShareModal slug={slug} title={event()!.title} onClose={() => setShareOpen(false)} />
