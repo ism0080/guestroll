@@ -62,6 +62,7 @@ export const clearSessionToken = (): void => {
   } catch {
     // Nothing to clean up.
   }
+  clearObjectUrlCache()
 }
 
 export const hasSessionToken = (): boolean => _readToken() !== undefined
@@ -215,14 +216,73 @@ export const authorizedFetch = (url: string): Promise<Response> =>
   fetch(url, { headers: authHeaders() })
 
 /**
+ * Photo bytes are immutable once uploaded, so their blob object URLs can be
+ * shared safely. A bounded LRU keyed by URL keeps swiping back and forth
+ * between photos instant: repeated views reuse the cached bytes instead of
+ * refetching, and evicted entries are revoked to cap memory.
+ */
+interface CachedObjectUrl {
+  readonly url: string
+  readonly bytes: number
+}
+
+const objectUrlCache = new Map<string, CachedObjectUrl>()
+const objectUrlInFlight = new Map<string, Promise<string>>()
+
+/** Soft ceiling on cached photo bytes before the oldest entries are revoked. */
+const ObjectUrlCacheBytes = 64 * 1024 * 1024
+
+const _cacheObjectUrl = (key: string, url: string, bytes: number): void => {
+  objectUrlCache.set(key, { url, bytes })
+  let total = 0
+  for (const entry of objectUrlCache.values()) total += entry.bytes
+  if (total <= ObjectUrlCacheBytes) return
+  for (const [oldKey, entry] of objectUrlCache) {
+    if (total <= ObjectUrlCacheBytes) break
+    // Never revoke the URL just handed back to the caller.
+    if (oldKey === key) continue
+    objectUrlCache.delete(oldKey)
+    URL.revokeObjectURL(entry.url)
+    total -= entry.bytes
+  }
+}
+
+/** Revokes every cached URL; called when the host session is dropped. */
+export const clearObjectUrlCache = (): void => {
+  for (const entry of objectUrlCache.values()) URL.revokeObjectURL(entry.url)
+  objectUrlCache.clear()
+}
+
+/**
  * Fetches a host-only asset with the session bearer header and returns a
  * blob object URL for `<img>` tags (which cannot set headers themselves).
+ * Results are cached by URL and shared between callers, and concurrent
+ * requests for the same asset are de-duplicated.
  */
-export const fetchObjectUrl = async (url: string): Promise<string> => {
-  const response = await authorizedFetch(url)
-  if (!response.ok) throw new Error(`Asset request failed with status ${response.status}`)
-  const blob = await response.blob()
-  return URL.createObjectURL(blob)
+export const fetchObjectUrl = (url: string): Promise<string> => {
+  const cached = objectUrlCache.get(url)
+  if (cached !== undefined) {
+    // Refresh recency so the LRU evicts genuinely older photos first.
+    objectUrlCache.delete(url)
+    objectUrlCache.set(url, cached)
+    return Promise.resolve(cached.url)
+  }
+  const pending = objectUrlInFlight.get(url)
+  if (pending !== undefined) return pending
+  const request = (async (): Promise<string> => {
+    const response = await authorizedFetch(url)
+    if (!response.ok) throw new Error(`Asset request failed with status ${response.status}`)
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    _cacheObjectUrl(url, objectUrl, blob.size)
+    return objectUrl
+  })()
+  objectUrlInFlight.set(url, request)
+  void request.then(
+    () => objectUrlInFlight.delete(url),
+    () => objectUrlInFlight.delete(url)
+  )
+  return request
 }
 
 const _extensionForContentType = (contentType: string): string => {
