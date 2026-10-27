@@ -44,6 +44,25 @@ const _constraints = (options: StartStreamOptions): MediaStreamConstraints => {
   }
 }
 
+/**
+ * Creates the live preview `<video>` imperatively instead of through JSX.
+ *
+ * Solid instantiates static JSX elements by cloning a `<template>`, and iOS 27
+ * ships a WebKit regression (webkit.org/b/320979): a MediaStream attached to a
+ * template-cloned video decodes frames but never paints, so the viewfinder stays
+ * black even though capture and the gallery work. An element from
+ * `document.createElement("video")` paints normally.
+ */
+export const createPreviewVideo = (): HTMLVideoElement => {
+  const element = document.createElement("video")
+  element.autoplay = true
+  element.muted = true
+  element.playsInline = true
+  element.setAttribute("playsinline", "")
+  element.setAttribute("webkit-playsinline", "")
+  return element
+}
+
 /** Requests a camera stream. Throws on permission denial or missing camera. */
 export const startStream = async (
   facingMode: FacingMode,

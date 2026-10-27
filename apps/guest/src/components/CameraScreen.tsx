@@ -1,8 +1,9 @@
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js"
 import type { Accessor, JSX } from "solid-js"
 import { filterPackCss } from "@guestroll/contracts"
 import {
   captureFrame,
+  createPreviewVideo,
   getFocusInfo,
   getZoomRange,
   listCameras,
@@ -67,7 +68,7 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   const [focusSupported, setFocusSupported] = createSignal(false)
   const [focusPoint, setFocusPoint] = createSignal<FocusPoint | null>(null)
   const [zoomVisible, setZoomVisible] = createSignal(false)
-  let video: HTMLVideoElement | undefined
+  const [video, setVideo] = createSignal<HTMLVideoElement>()
   let viewport: HTMLDivElement | undefined
   let stream: MediaStream | undefined
   let attachId = 0
@@ -112,10 +113,11 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     }
     setTorchOn(false)
     pinchStart = null
+    const element = video()
     try {
-      if (video !== undefined) {
-        video.srcObject = stream
-        await video.play()
+      if (element !== undefined) {
+        element.srcObject = stream
+        await element.play()
       }
     } catch (error) {
       stopStream(stream)
@@ -130,6 +132,11 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   const preventPageGesture = (event: Event): void => event.preventDefault()
 
   onMount(() => {
+    // Mounted imperatively: iOS 27 does not paint a MediaStream in a
+    // template-cloned <video>, which is what static JSX produces.
+    const element = createPreviewVideo()
+    setVideo(element)
+    viewport?.prepend(element)
     viewport?.addEventListener("gesturestart", preventPageGesture)
     viewport?.addEventListener("gesturechange", preventPageGesture)
     attach(facing(), deviceId()).catch(() => props.onUnavailable())
@@ -142,6 +149,8 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     if (focusTimeout !== undefined) clearTimeout(focusTimeout)
     if (zoomHideTimeout !== undefined) clearTimeout(zoomHideTimeout)
     if (stream !== undefined) stopStream(stream)
+    video()?.remove()
+    setVideo(undefined)
   })
 
   const devicesForFacing = createMemo(() => {
@@ -167,6 +176,21 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
     if (facing() === "user") parts.push("scaleX(-1)")
     if (softwareZoom() && zoom() > 1.01) parts.push(`scale(${zoom()})`)
     return parts.join(" ")
+  })
+
+  const presentVideo = (element: HTMLVideoElement): void => {
+    element.style.filter = filterPackCss(props.filterPack)
+    element.style.transform = videoTransform()
+    element.classList.toggle("flipped", facing() === "user")
+  }
+
+  // Keep the live preview's look in sync. The element itself is created and
+  // mounted in `onMount` (see `createPreviewVideo` for why). Reading it through
+  // a signal means the effect also runs if it fires before the mount does.
+  createEffect(() => {
+    const element = video()
+    if (element === undefined) return
+    presentVideo(element)
   })
 
   const toggleFacing = (): void => {
@@ -246,11 +270,12 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
   }
 
   const handleCapture = (): void => {
-    if (video === undefined || !props.canCapture()) return
+    const element = video()
+    if (element === undefined || !props.canCapture()) return
     // Native zoom is already baked into the track frames; software zoom
     // needs the center crop applied at capture time.
     const captureZoom = softwareZoom() ? zoom() : 1
-    _capture(video, flash, props.onCapture, captureZoom).catch(() => props.onCaptureError?.())
+    _capture(element, flash, props.onCapture, captureZoom).catch(() => props.onCaptureError?.())
   }
 
   const zoomLabel = createMemo(() => `${zoom().toFixed(1)}×`)
@@ -267,16 +292,6 @@ export const CameraScreen = (props: CameraScreenProps): JSX.Element => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <video
-          ref={(el) => {
-            video = el
-          }}
-          autoplay
-          playsinline
-          muted
-          style={{ filter: filterPackCss(props.filterPack), transform: videoTransform() }}
-          class={facing() === "user" ? "flipped" : ""}
-        />
         <div class="camera-frame" />
         <Show when={focusPoint() !== null}>
           <div class="focus-ring" style={{ left: `${focusPoint()!.x}%`, top: `${focusPoint()!.y}%` }} />

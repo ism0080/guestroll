@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import jsQR from "jsqr"
+import { createPreviewVideo } from "~/lib/camera"
 import { invitationSlug } from "~/lib/invitation"
 
 interface BarcodeDetectorLike {
@@ -26,6 +27,7 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
   const [scanning, setScanning] = createSignal(false)
   const [scanMessage, setScanMessage] = createSignal<string | null>(null)
   let video: HTMLVideoElement | undefined
+  let videoHost: HTMLDivElement | undefined
   let stream: MediaStream | undefined
   let scanTimer: number | undefined
   let scanActive = false
@@ -38,6 +40,8 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
     scanTimer = undefined
     stream?.getTracks().forEach((track) => track.stop())
     stream = undefined
+    video?.remove()
+    video = undefined
   }
 
   const openValue = (input: string): void => {
@@ -52,16 +56,23 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
 
   const scan = async (): Promise<void> => {
     const Detector = _barcodeDetector()
-    // Render the preview before requesting permission. iOS can grant the
-    // camera stream immediately, so asking first races the conditional video.
+    // Render the preview container before requesting permission. iOS can grant
+    // the camera stream immediately, so asking first races the conditional UI.
     setScanning(true)
     setScanMessage("Requesting camera access...")
     try {
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
-      if (video === undefined) throw new Error("Scanner preview is unavailable")
+      const host = videoHost
+      if (host === undefined) throw new Error("Scanner preview is unavailable")
+      // iOS 27 does not paint a MediaStream in a template-cloned <video>, so
+      // the preview is created and mounted imperatively.
+      const element = createPreviewVideo()
+      element.className = "aspect-video w-full object-cover"
+      host.append(element)
+      video = element
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
-      video.srcObject = stream
-      await video.play()
+      element.srcObject = stream
+      await element.play()
       const detector = Detector === undefined ? undefined : new Detector({ formats: ["qr_code"] })
       canvas = document.createElement("canvas")
       scanActive = true
@@ -155,7 +166,7 @@ export const InvitationEntry = (props: InvitationEntryProps): JSX.Element => {
 
       <Show when={!scanning()} fallback={
         <div class="overflow-hidden rounded-box border-2 border-neutral bg-neutral">
-          <video ref={(element) => { video = element }} class="aspect-video w-full object-cover" autoplay playsinline muted />
+          <div ref={(element) => { videoHost = element }} class="aspect-video w-full" />
           <button type="button" class="btn btn-ghost w-full rounded-none text-base-100" onClick={stopScanning}>Stop scanning</button>
         </div>
       }>
