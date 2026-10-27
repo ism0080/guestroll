@@ -8,6 +8,6 @@
   "dependencies": {
     "@guestroll/api": "workspace:*",
     "@guestroll/contracts": "workspace:*",
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.6"
   }
 }

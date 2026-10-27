@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@cloudflare/workers-types": "^5.20260822.1",
-    "@effect/sql-d1": "4.0.0-rc.112",
+    "@effect/sql-d1": "4.0.6",
     "@guestroll/contracts": "0.0.0",
     "@guestroll/domain": "0.0.0",
-    "effect": "4.0.0-rc.112",
+    "effect": "4.0.6",
     "fflate": "^0.8.3"
   }
 }

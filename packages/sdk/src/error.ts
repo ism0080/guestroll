@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from "effect"
-import * as HttpClientError from "effect/unstable/http/HttpClientError"
-import * as HttpApiError from "effect/unstable/httpapi/HttpApiError"
+import * as HttpClientError from "effect/http/HttpClientError"
+import * as HttpApiError from "effect/http-api/HttpApiError"
 import { RateLimitExceeded, UploadContentMismatchError } from "@guestroll/contracts"
 
 /**

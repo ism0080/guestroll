@@ -1,11 +1,11 @@
 import { Clock, Effect, Match, Option, Result, Schema } from "effect"
 import * as Stream from "effect/Stream"
 import * as D1Client from "@effect/sql-d1/D1Client"
-import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder"
-import { HttpApiError } from "effect/unstable/httpapi"
-import * as Multipart from "effect/unstable/http/Multipart"
-import type * as HttpServerRequest from "effect/unstable/http/HttpServerRequest"
-import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
+import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder"
+import { HttpApiError } from "effect/http-api"
+import * as Multipart from "effect/http/Multipart"
+import type * as HttpServerRequest from "effect/http/HttpServerRequest"
+import * as HttpServerResponse from "effect/http/HttpServerResponse"
 import {
   CameraCreateResult,
   CameraId,

@@ -1,6 +1,6 @@
 import { Effect, Option, Schema } from "effect"
 import * as D1Client from "@effect/sql-d1/D1Client"
-import type { Statement } from "effect/unstable/sql/Statement"
+import type { Statement } from "effect/sql/Statement"
 import {
   Camera,
   CameraId,

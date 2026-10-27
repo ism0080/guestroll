@@ -1,9 +1,9 @@
 import { Schema } from "effect"
-import * as HttpApi from "effect/unstable/httpapi/HttpApi"
-import * as HttpApiEndpoint from "effect/unstable/httpapi/HttpApiEndpoint"
-import * as HttpApiError from "effect/unstable/httpapi/HttpApiError"
-import * as HttpApiGroup from "effect/unstable/httpapi/HttpApiGroup"
-import * as HttpApiSchema from "effect/unstable/httpapi/HttpApiSchema"
+import * as HttpApi from "effect/http-api/HttpApi"
+import * as HttpApiEndpoint from "effect/http-api/HttpApiEndpoint"
+import * as HttpApiError from "effect/http-api/HttpApiError"
+import * as HttpApiGroup from "effect/http-api/HttpApiGroup"
+import * as HttpApiSchema from "effect/http-api/HttpApiSchema"
 import {
   CameraCreate,
   CameraCreateResult,

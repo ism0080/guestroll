@@ -14,7 +14,7 @@
     "test": "bun test"
   },
   "devDependencies": {
-    "@alchemy.run/cloudflare-runtime": "2.0.0-beta.76",
+    "@alchemy.run/cloudflare-runtime": "2.0.0-beta.84",
     "@cloudflare/workers-types": "5.20260822.1",
     "@effect/tsgo": "0.39.0",
     "@oxlint/plugins": "1.80.0",
@@ -26,12 +26,14 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-rc.112",
-    "@effect/platform-node": "4.0.0-rc.112",
-    "@effect/sql-d1": "4.0.0-rc.112",
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "@alchemy.run/drizzle": "2.0.0-beta.84",
+    "@effect/platform-bun": "4.0.6",
+    "@effect/platform-node": "4.0.6",
+    "@effect/sql-d1": "4.0.6",
     "@guestroll/api": "workspace:*",
-    "alchemy": "2.0.0-beta.76",
+    "alchemy": "2.0.0-beta.84",
     "drizzle-orm": "1.0.0-rc.5-ab785fc",
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.6"
   }
 }

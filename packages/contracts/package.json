@@ -6,6 +6,6 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.6"
   }
 }

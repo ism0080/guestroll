@@ -1,4 +1,4 @@
-import * as Cloudflare from "alchemy/Cloudflare"
+import * as Cloudflare from "@alchemy.run/cloudflare"
 import * as Alchemy from "alchemy"
 import * as Config from "effect/Config"
 import { ApiWorkerProgram } from "./ApiWorker.ts"
@@ -22,7 +22,7 @@ export default (
     env: {
       DB: Database,
       BUCKET: Bucket,
-      HOST_PASSCODE: Config.redacted("HOST_PASSCODE"),
+      HOST_PASSCODE: Config.Redacted("HOST_PASSCODE"),
       HOST_SESSION_SECRET: Alchemy.makeRandom("HostSessionSecret"),
       HOST_ALLOWED_ORIGIN: hostOrigin ?? "",
       GUEST_ALLOWED_ORIGIN: guestOrigin ?? "",

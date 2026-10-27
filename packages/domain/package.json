@@ -7,6 +7,6 @@
   "types": "src/index.ts",
   "dependencies": {
     "@guestroll/contracts": "0.0.0",
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.6"
   }
 }

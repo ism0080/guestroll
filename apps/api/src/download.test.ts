@@ -53,7 +53,7 @@ const _makeMemoryR2 = (): R2Deps & {
       objects.set(key, value)
     }),
     putStream: (key, stream, contentType) =>
-      Effect.tryPromise(async () => {
+      Effect.promise(async () => {
         const reader = stream.getReader()
         const chunks: Uint8Array[] = []
         while (true) {

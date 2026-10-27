@@ -1,6 +1,6 @@
 import * as Alchemy from "alchemy"
-import * as Cloudflare from "alchemy/Cloudflare"
-import * as Drizzle from "alchemy/Drizzle"
+import * as Cloudflare from "@alchemy.run/cloudflare"
+import * as Drizzle from "@alchemy.run/drizzle"
 import * as Effect from "effect/Effect"
 import * as Config from "effect/Config"
 import * as Option from "effect/Option"
@@ -22,10 +22,10 @@ export default Alchemy.Stack(
     state: Cloudflare.state()
   },
   Effect.gen(function* () {
-    const apiDomain = Option.getOrUndefined(yield* Config.option(Config.string("API_DOMAIN")))
-    const guestDomain = Option.getOrUndefined(yield* Config.option(Config.string("GUEST_DOMAIN")))
-    const hostDomain = Option.getOrUndefined(yield* Config.option(Config.string("HOST_DOMAIN")))
-    const zoneName = Option.getOrUndefined(yield* Config.option(Config.string("ZONE_NAME")))
+    const apiDomain = Option.getOrUndefined(yield* Config.option(Config.String("API_DOMAIN")))
+    const guestDomain = Option.getOrUndefined(yield* Config.option(Config.String("GUEST_DOMAIN")))
+    const hostDomain = Option.getOrUndefined(yield* Config.option(Config.String("HOST_DOMAIN")))
+    const zoneName = Option.getOrUndefined(yield* Config.option(Config.String("ZONE_NAME")))
     if ((apiDomain ?? guestDomain ?? hostDomain) !== undefined && zoneName === undefined) {
       return yield* Effect.die(
         new Error("ZONE_NAME is required when API_DOMAIN, GUEST_DOMAIN, or HOST_DOMAIN is set")
