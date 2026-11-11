@@ -59,8 +59,8 @@
 .table-card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 6mm;
-  padding: 8mm;
+  gap: 4mm;
+  padding: 5mm;
   background: #fff;
 }
 
@@ -72,14 +72,16 @@
   gap: 3.5mm;
   border: 0.7mm solid var(--guestroll-ink, #201d18);
   border-radius: 5mm;
-  background: var(--color-base-100, #f6f2e9);
-  box-shadow: 2mm 2mm 0 0 var(--guestroll-ink, #201d18);
-  padding: 7mm 6mm;
+  box-shadow: 1mm 1mm 0 0 var(--guestroll-ink, #201d18);
   text-align: center;
   break-inside: avoid;
+  max-height: 90mm;
+  min-height: 90mm;
+  min-width: 90mm;
 }
 
 .table-card-eyebrow {
+  margin-top: 3.5mm;
   font-family: var(--guestroll-mono, ui-monospace, monospace);
   font-size: 8pt;
   font-weight: 700;
@@ -98,15 +100,13 @@
 }
 
 .table-card-qr-frame {
-  border: 0.7mm solid var(--guestroll-ink, #201d18);
-  border-radius: 3mm;
   background: #fff;
-  padding: 3mm;
+  padding: 2mm;
 }
 
 .table-card-qr {
-  width: 56mm;
-  height: 56mm;
+  width: 30mm;
+  height: 30mm;
   display: block;
 }
 
@@ -122,11 +122,16 @@
   text-transform: uppercase;
   color: var(--color-base-content, #201d18);
   opacity: 0.7;
+
+  & .small {
+    font-size: 8pt;
+  }
 }
 
 .table-card-perforations {
-  width: 100%;
+  width: 90%;
   height: 2mm;
+  margin-bottom: 2mm;
   border-radius: 9999px;
   opacity: 0.35;
   background-image: repeating-linear-gradient(

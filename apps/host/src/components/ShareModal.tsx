@@ -1,10 +1,11 @@
-import { createResource, For, Show } from "solid-js"
+import { createResource, Show } from "solid-js"
 import type { JSX } from "solid-js"
 import { Portal } from "solid-js/web"
 import QRCode from "qrcode"
 import { guestLink } from "~/lib/api"
 import { CheckIcon, CloseIcon, CopyIcon, PrinterIcon } from "@guestroll/ui"
 import { Modal } from "./Modal"
+import { TableCards } from "./TableCards"
 import { createCopyFeedback } from "~/lib/clipboard"
 
 export interface ShareModalProps {
@@ -17,8 +18,6 @@ const qrSvgDataUrl = (text: string): Promise<string> =>
   QRCode.toString(text, { type: "svg", margin: 2, color: { dark: "#111111", light: "#ffffff" } }).then(
     (svg) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
   )
-
-const TABLE_CARD_COUNT = 4
 
 export const ShareModal = (props: ShareModalProps): JSX.Element => {
   const link = guestLink(props.slug)
@@ -88,26 +87,7 @@ export const ShareModal = (props: ShareModalProps): JSX.Element => {
 
       <Portal>
         <div class="print-area hidden print:block" aria-hidden="true">
-          <div class="table-card-grid">
-            <For each={Array.from({ length: TABLE_CARD_COUNT }, (_, index) => index)}>
-              {() => (
-                <div class="table-card">
-                  <div class="table-card-eyebrow">GuestRoll</div>
-                  <div class="table-card-title">{props.title}</div>
-                  <div class="table-card-qr-frame">
-                    <Show
-                      when={qr()}
-                      fallback={<div class="table-card-qr table-card-qr-placeholder" />}
-                    >
-                      {(value) => <img src={value()} alt="" class="table-card-qr" />}
-                    </Show>
-                  </div>
-                  <div class="table-card-text">Scan to add your photos</div>
-                  <div class="table-card-perforations" />
-                </div>
-              )}
-            </For>
-          </div>
+          <TableCards title={props.title} qr={qr()} />
         </div>
       </Portal>
     </>
